@@ -1,0 +1,138 @@
+'use client'
+
+import { useState } from 'react'
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { 
+  Settings, 
+  Users, 
+  Building, 
+  Users2, 
+  FileSearch, 
+  Menu, 
+  LogIn,
+  Home
+} from "lucide-react"
+import Link from 'next/link'
+
+interface SidebarProps {
+  activeTab: string
+  onTabChange: (tab: string) => void
+  sidebarCollapsed: boolean
+  onSidebarToggle: () => void
+  pendingUsersCount: number
+  logout: () => void
+}
+
+export default function Sidebar({
+  activeTab,
+  onTabChange,
+  sidebarCollapsed,
+  onSidebarToggle,
+  pendingUsersCount,
+  logout
+}: SidebarProps) {
+  return (
+    <aside className={`bg-background border-r transition-all duration-300 ${
+      sidebarCollapsed ? 'w-16' : 'w-64'
+    }`}>
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="flex items-center justify-end p-4 border-b">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onSidebarToggle}
+            className="p-2"
+          >
+            <Menu className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-2">
+          <Button
+            variant={activeTab === "dashboard" ? "default" : "ghost"}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            onClick={() => onTabChange("dashboard")}
+            title={sidebarCollapsed ? "Dashboard" : ""}
+          >
+            <Home className="h-4 w-4" />
+            {!sidebarCollapsed && <span className="ml-2">Dashboard</span>}
+          </Button>
+          
+          <Button
+            variant={activeTab === "general" ? "default" : "ghost"}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            onClick={() => onTabChange("general")}
+            title={sidebarCollapsed ? "Geral" : ""}
+          >
+            <Settings className="h-4 w-4" />
+            {!sidebarCollapsed && <span className="ml-2">Geral</span>}
+          </Button>
+          
+          <Button
+            variant={activeTab === "users" ? "default" : "ghost"}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            onClick={() => onTabChange("users")}
+            title={sidebarCollapsed ? "Usuários" : ""}
+          >
+            <div className="flex items-center">
+              <Users className="h-4 w-4" />
+              {!sidebarCollapsed && (
+                <>
+                  <span className="ml-2">Usuários</span>
+                  {pendingUsersCount > 0 && (
+                    <Badge variant="destructive" className="ml-auto text-xs">
+                      {pendingUsersCount}
+                    </Badge>
+                  )}
+                </>
+              )}
+            </div>
+          </Button>
+          
+          <Button
+            variant={activeTab === "sectors" ? "default" : "ghost"}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            onClick={() => onTabChange("sectors")}
+            title={sidebarCollapsed ? "Setores" : ""}
+          >
+            <Building className="h-4 w-4" />
+            {!sidebarCollapsed && <span className="ml-2">Setores</span>}
+          </Button>
+          
+          <Button
+            variant={activeTab === "groups" ? "default" : "ghost"}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            onClick={() => onTabChange("groups")}
+            title={sidebarCollapsed ? "Grupos" : ""}
+          >
+            <Users2 className="h-4 w-4" />
+            {!sidebarCollapsed && <span className="ml-2">Grupos</span>}
+          </Button>
+          
+  
+          
+          <Button
+            variant={activeTab === "audit-logs" ? "default" : "ghost"}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            onClick={() => onTabChange("audit-logs")}
+            title={sidebarCollapsed ? "Logs de auditoria" : ""}
+          >
+            <FileSearch className="h-4 w-4" />
+            {!sidebarCollapsed && <span className="ml-2">Logs de auditoria</span>}
+          </Button>
+          
+  
+  
+        </nav>
+
+        {/* Footer */}
+        <div className="p-4 border-t">
+          {/* Footer vazio - botões movidos para o topo da página */}
+        </div>
+      </div>
+    </aside>
+  )
+}

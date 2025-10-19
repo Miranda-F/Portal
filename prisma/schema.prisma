@@ -1,0 +1,970 @@
+// Este é o seu arquivo de schema Prisma,
+// saiba mais sobre isso nos docs: https://pris.ly/d/prisma-schema
+
+// Procurando maneiras de acelerar suas consultas, ou escalar facilmente com suas funções serverless ou edge?
+// Tente Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Sector {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  users       User[]
+  procedures  Procedure[]
+  publications PublicationSectorTarget[]
+  trainings   Training[]
+  employees   Employee[]
+  recruitmentProcesses RecruitmentProcess[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      Role     @default(USER)
+  photoUrl  String?
+  lastLogin DateTime?
+  approved  Boolean  @default(true)  // Campo para controlar se o usuário está ativo
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Campo para controlar a exibição do card "Nossa identidade"
+  showIdentityCard Boolean @default(true)
+  
+  // Relacionamentos
+  sectorId  String?
+  sector    Sector?  @relation(fields: [sectorId], references: [id])
+  jobPostings JobPosting[]
+  events      Event[]
+  procedures  Procedure[]
+  publications Publication[]
+  jobApplications JobApplication[]
+  eventAttendances EventAttendance[]
+  procedureHistory ProcedureHistory[]
+  publicationTargets PublicationUserTarget[]
+  comments    Comment[]
+  groups      GroupUser[]
+  trainings   Training[]
+  performanceEvaluations PerformanceEvaluation[] @relation("PerformanceEvaluator")
+  newsArticles NewsArticle[]
+  newsReactions NewsReaction[]
+  newsComments NewsComment[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+}
+
+model JobPosting {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  department  String
+  email       String
+  phone       String?
+  requirements String?
+  salary      String?
+  location    String?
+  type        JobType  @default(FULL_TIME)
+  status      JobStatus @default(ACTIVE)
+  maxApplications Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdById String
+  jobApplications JobApplication[]
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  date        DateTime
+  time        String
+  location    String
+  maxAttendees Int?
+  status      EventStatus @default(UPCOMING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdById String
+  eventAttendances EventAttendance[]
+}
+
+model Procedure {
+  id            String   @id @default(cuid())
+  title         String
+  content       String?
+  type          ProcedureType @default(MANAGEMENT_PROCEDURE)
+  status        ProcedureStatus @default(DRAFT)
+  documentDate  DateTime? // Data de criação do documento
+  expiryDate    DateTime? // Data de validade (calculada automaticamente)
+  fileUrl       String?  // URL do arquivo PDF
+  fileName      String?  // Nome original do arquivo
+  fileSize      Int?     // Tamanho do arquivo em bytes
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relacionamentos
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdById   String
+  sectorId      String?
+  sector        Sector?  @relation(fields: [sectorId], references: [id])
+  history       ProcedureHistory[]
+}
+
+model ProcedureHistory {
+  id          String   @id @default(cuid())
+  action      String   // "CRIADO", "ATUALIZADO", "STATUS_ALTERADO", "ARQUIVO_ALTERADO", etc.
+  description String?  // Descrição detalhada da alteração
+  oldValues   String?  // Valores antigos em JSON
+  newValues   String?  // Valores novos em JSON
+  createdAt   DateTime @default(now())
+  
+  // Relacionamentos
+  procedureId String
+  procedure   Procedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Publication {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  type        PublicationType @default(REPORT)
+  status      PublicationStatus @default(PUBLISHED)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdById String
+  userTargets PublicationUserTarget[]
+  sectorTargets PublicationSectorTarget[]
+  groupTargets PublicationGroupTarget[]
+  comments    Comment[]
+}
+
+model JobApplication {
+  id        String   @id @default(cuid())
+  status    JobApplicationStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relacionamentos
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  jobId     String
+  job       JobPosting @relation(fields: [jobId], references: [id])
+  
+  @@unique([userId, jobId])
+}
+
+model EventAttendance {
+  id        String   @id @default(cuid())
+  status    EventAttendanceStatus @default(CONFIRMED)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relacionamentos
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id])
+  
+  @@unique([userId, eventId])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum JobType {
+  FULL_TIME
+  INTERNSHIP
+  CONTRACT
+  REMOTE
+}
+
+enum JobStatus {
+  ACTIVE
+  INACTIVE
+  FILLED
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum ProcedureType {
+  MANAGEMENT_PROCEDURE
+  WORK_INSTRUCTION
+}
+
+enum ProcedureStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PublicationType {
+  REPORT
+  INSPECTION
+  ANNOUNCEMENT
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum JobApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum EventAttendanceStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+model PublicationUserTarget {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  
+  // Relacionamentos
+  publicationId String
+  publication  Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([publicationId, userId])
+}
+
+model PublicationSectorTarget {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  
+  // Relacionamentos
+  publicationId String
+  publication  Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  sectorId     String
+  sector       Sector      @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  
+  @@unique([publicationId, sectorId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relacionamentos
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  parentId  String?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+  
+  // Polimorfismo - pode ser associado a diferentes entidades
+  publicationId String?
+  publication    Publication? @relation(fields: [publicationId], references: [id])
+  
+  @@map("comments")
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  users       GroupUser[]
+  publications PublicationGroupTarget[]
+}
+
+model Training {
+  id          String   @id @default(cuid())
+  title       String   // Tipo de treinamento (ex: NR 10, NR 35)
+  deadline    DateTime // Data de vencimento
+  status      TrainingStatus @default(VALID) // Status do treinamento
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  collaboratorId String
+  collaborator  User     @relation(fields: [collaboratorId], references: [id])
+  sectorId      String?
+  sector        Sector?  @relation(fields: [sectorId], references: [id])
+}
+
+model GroupUser {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  
+  // Relacionamentos
+  groupId   String
+  group     Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([groupId, userId])
+}
+
+model PublicationGroupTarget {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  
+  // Relacionamentos
+  publicationId String
+  publication  Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  groupId      String
+  group        Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  
+  @@unique([publicationId, groupId])
+}
+
+enum TrainingStatus {
+  VALID    // No prazo
+  EXPIRED  // Vencido
+  PENDING  // Próximo a vencer
+}
+
+// Modelos para o Sistema de Jornal Corporativo
+
+model NewsArticle {
+  id            String   @id @default(cuid())
+  title         String
+  summary       String
+  content       String
+  slug          String   @unique
+  categoryId    String
+  category      NewsCategory @relation(fields: [categoryId], references: [id])
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id])
+  featured      Boolean  @default(false)
+  publishedAt   DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  status        NewsStatus @default(PUBLISHED)
+  viewCount     Int      @default(0)
+  priority      Int      @default(0) // Para ordenação por destaque
+  
+  // Relacionamentos
+  media         NewsMedia[]
+  reactions     NewsReaction[]
+  comments      NewsComment[]
+  tags          NewsTag[]
+}
+
+model NewsCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  color       String?  // Cor para identificação visual
+  icon        String?  // Ícone para a categoria
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  articles    NewsArticle[]
+}
+
+model NewsMedia {
+  id          String   @id @default(cuid())
+  articleId   String
+  article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  type        MediaType @default(IMAGE)
+  url         String
+  title       String?
+  description String?
+  altText     String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  
+  @@unique([articleId, order])
+}
+
+model NewsReaction {
+  id          String   @id @default(cuid())
+  articleId   String
+  article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  reaction    ReactionType @default(LIKE)
+  ipAddress   String?  // Para anonimizar reações
+  createdAt   DateTime @default(now())
+  
+  @@unique([articleId, userId, ipAddress])
+}
+
+model NewsComment {
+  id          String   @id @default(cuid())
+  articleId   String
+  article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  authorName  String?  // Para comentários anônimos
+  authorEmail String?  // Para comentários anônimos
+  content     String
+  approved    Boolean  @default(true)
+  parentId    String?
+  parent      NewsComment? @relation("NewsCommentReplies", fields: [parentId], references: [id])
+  replies     NewsComment[] @relation("NewsCommentReplies")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model NewsTag {
+  id          String   @id @default(cuid())
+  articleId   String
+  article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  name        String
+  createdAt   DateTime @default(now())
+  
+  @@unique([articleId, name])
+}
+
+enum NewsStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  DOCUMENT
+}
+
+enum ReactionType {
+  LIKE
+  LOVE
+  CLAP
+  INSIGHTFUL
+  CELEBRATE
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Modelo para Refresh Tokens
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenId   String   @unique // UUID para identificar o token
+  tokenHash String   // Hash do refresh token para segurança
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relacionamentos
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Modelo para Logs de Auditoria
+model AuditLog {
+  id                String   @id @default(cuid())
+  userId            String?  // ID do usuário que realizou a ação
+  userName          String?  // Nome do usuário no momento da ação
+  userEmail         String?  // Email do usuário no momento da ação
+  userRole          Role?    // Perfil do usuário no momento da ação
+  action            String   // Tipo de ação realizada
+  actionType        ActionType // Tipo categorizado da ação
+  description       String   // Descrição detalhada da ação
+  details           String?  // Detalhes adicionais em JSON (campos afetados, valores anteriores e novos)
+  ipAddress         String?  // IP do usuário
+  userAgent         String?  // User agent do dispositivo
+  requestSource     RequestSource? // Origem da solicitação
+  entityType        String?  // Tipo de entidade afetada
+  entityId          String?  // ID da entidade afetada
+  entityName        String?  // Nome/descrição da entidade afetada
+  result            ActionResult @default(SUCCESS) // Resultado da ação
+  errorCode         String?  // Código de erro, se houver
+  errorMessage      String?  // Mensagem de erro, se houver
+  sessionId         String?  // ID da sessão, se aplicável
+  createdAt         DateTime @default(now()) // Data e hora da ação
+  
+  // Relacionamentos
+  user              User?    @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([actionType])
+  @@index([entityType])
+  @@index([result])
+  @@index([createdAt])
+  @@index([action])
+}
+
+enum ActionType {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  APPROVE
+  REJECT
+  EXPORT
+  IMPORT
+  UPLOAD
+  DOWNLOAD
+  SETTINGS_CHANGE
+  PERMISSION_CHANGE
+  PASSWORD_CHANGE
+  EMAIL_CHANGE
+  PROFILE_UPDATE
+  DOCUMENT_ACCESS
+  REPORT_ACCESS
+  SYSTEM_ACTION
+  OTHER
+}
+
+enum RequestSource {
+  WEB_INTERFACE
+  API
+  MOBILE_APP
+  SYSTEM
+  OTHER
+}
+
+enum ActionResult {
+  SUCCESS
+  FAILURE
+  PARTIAL_SUCCESS
+  TIMEOUT
+  UNAUTHORIZED
+  FORBIDDEN
+  NOT_FOUND
+  VALIDATION_ERROR
+  SERVER_ERROR
+}
+
+// Modelos de Recursos Humanos (RH)
+
+model Employee {
+  id              String   @id @default(cuid())
+  cpf             String   @unique
+  name            String
+  email           String   @unique
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  position        String   // Cargo
+  sectorId        String
+  admissionDate   DateTime
+  salary          Float    // Salário base
+  employmentType  EmploymentType @default(CLT)
+  status          EmployeeStatus @default(ACTIVE)
+  birthDate       DateTime?
+  gender          Gender?
+  educationLevel  EducationLevel?
+  maritalStatus   MaritalStatus?
+  emergencyContact String?
+  emergencyPhone  String?
+  notes           String?
+  photoUrl        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relacionamentos
+  sector          Sector     @relation(fields: [sectorId], references: [id])
+  history         EmployeeHistory[]
+  documents       EmployeeDocument[]
+  evaluations     PerformanceEvaluation[]
+  careerPlans     CareerPlan[]
+  applications    Application[]
+  trainings       EmployeeTraining[]
+}
+
+model EmployeeHistory {
+  id          String   @id @default(cuid())
+  employeeId  String
+  type        HistoryType
+  title       String
+  description String?
+  date        DateTime
+  oldValues   String?  // JSON com valores antigos
+  newValues   String?  // JSON com valores novos
+  createdAt   DateTime @default(now())
+  
+  // Relacionamentos
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model EmployeeDocument {
+  id          String   @id @default(cuid())
+  employeeId  String
+  type        DocumentType
+  title       String
+  fileUrl     String
+  fileName    String
+  fileSize    Int?
+  mimeType    String?
+  expiryDate  DateTime? // Data de validade (para exames, etc.)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model RecruitmentProcess {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  department  String
+  sectorId    String?
+  requirements String?
+  salaryRange String?
+  openings    Int      @default(1)
+  status      RecruitmentStatus @default(OPEN)
+  priority    Priority @default(MEDIUM)
+  startDate   DateTime @default(now())
+  endDate     DateTime?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  sector      Sector?      @relation(fields: [sectorId], references: [id])
+  applications Application[]
+  stages      RecruitmentStage[]
+}
+
+model Application {
+  id           String   @id @default(cuid())
+  processId    String
+  employeeId   String?  // Pode ser null se for candidato externo
+  name         String   // Nome do candidato
+  email        String
+  phone        String?
+  cpf          String?
+  address      String?
+  education    String?
+  experience   String?
+  salaryExpectation String?
+  availability String?
+  resumeUrl    String?
+  status       ApplicationStatus @default(RECEIVED)
+  score        Float?   // Pontuação na avaliação
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relacionamentos
+  process      RecruitmentProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  employee     Employee?          @relation(fields: [employeeId], references: [id])
+  stages       ApplicationStage[]
+}
+
+model RecruitmentStage {
+  id        String   @id @default(cuid())
+  processId String
+  name      String
+  order     Int
+  type      StageType
+  status    StageStatus @default(PENDING)
+  startDate DateTime?
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+  
+  // Relacionamentos
+  process   RecruitmentProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  applications ApplicationStage[]
+}
+
+model ApplicationStage {
+  id           String   @id @default(cuid())
+  applicationId String
+  stageId      String
+  status       StageStatus @default(PENDING)
+  feedback     String?
+  interviewer  String?
+  interviewDate DateTime?
+  score        Float?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relacionamentos
+  application  Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  stage        RecruitmentStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+}
+
+model PerformanceEvaluation {
+  id          String   @id @default(cuid())
+  employeeId  String
+  evaluatorId String
+  period      String   // Ex: "2024-Q1", "2024-Annual"
+  type        EvaluationType @default(QUARTERLY)
+  overallScore Float    // Nota geral (0-10)
+  goals       String?  // JSON com metas e resultados
+  strengths   String?  // Pontos fortes
+  weaknesses  String?  // Pontos a melhorar
+  feedback    String?  // Feedback detalhado
+  actionPlan  String?  // Plano de ação
+  status      EvaluationStatus @default(DRAFT)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  evaluator   User     @relation("PerformanceEvaluator", fields: [evaluatorId], references: [id])
+}
+
+model CareerPlan {
+  id          String   @id @default(cuid())
+  employeeId  String
+  currentPosition String
+  targetPosition String
+  description String?
+  requirements String?  // JSON com requisitos
+  timeline    String?  // Ex: "6 meses", "1 ano"
+  status      CareerPlanStatus @default(ACTIVE)
+  priority    Priority @default(MEDIUM)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model EmployeeTraining {
+  id          String   @id @default(cuid())
+  employeeId  String
+  title       String
+  description String?
+  type        TrainingType
+  provider    String?
+  duration    Int?     // Duração em horas
+  startDate   DateTime
+  endDate     DateTime?
+  cost        Float?
+  status      TrainingCompletionStatus @default(PLANNED)
+  certificateUrl String?
+  score       Float?   // Nota/avaliação
+  feedback    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relacionamentos
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+}
+
+model HRIndicator {
+  id          String   @id @default(cuid())
+  type        IndicatorType
+  period      String   // Ex: "2024-01", "2024-Q1"
+  value       Float
+  target      Float?
+  unit        String?  // Ex: "%", "dias", "R$"
+  description String?
+  metadata    String?  // JSON com dados adicionais
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Enums para RH
+
+enum EmploymentType {
+  CLT
+  PJ
+  INTERN
+  TRAINEE
+  TEMPORARY
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+  TERMINATED
+  SUSPENDED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum EducationLevel {
+  ELEMENTARY
+  HIGH_SCHOOL
+  COLLEGE
+  GRADUATE
+  POST_GRADUATE
+  PHD
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+  SEPARATED
+}
+
+enum HistoryType {
+  PROMOTION
+  TRANSFER
+  SALARY_CHANGE
+  POSITION_CHANGE
+  WARNING
+  RECOGNITION
+  TRAINING
+  OTHER
+}
+
+enum DocumentType {
+  CONTRACT
+  WORK_PERMIT
+  ID_CARD
+  CPF_CARD
+  RESIDENCE_PROOF
+  MEDICAL_EXAM
+  ADMISSION_EXAM
+  PERIODIC_EXAM
+  DEMISSIONAL_EXAM
+  CERTIFICATE
+  DIPLOMA
+  OTHER
+}
+
+enum RecruitmentStatus {
+  OPEN
+  IN_PROGRESS
+  ON_HOLD
+  CLOSED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ApplicationStatus {
+  RECEIVED
+  UNDER_REVIEW
+  INTERVIEW_SCHEDULED
+  INTERVIEWED
+  APPROVED
+  REJECTED
+  WITHDRAWN
+  HIRED
+}
+
+enum StageType {
+  SCREENING
+  TEST
+  INTERVIEW
+  GROUP_INTERVIEW
+  PRACTICAL_TEST
+  BACKGROUND_CHECK
+  OFFER
+  OTHER
+}
+
+enum StageStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum EvaluationType {
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+  PROMOTION
+  PROBATION
+}
+
+enum EvaluationStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  APPROVED
+  REJECTED
+}
+
+enum CareerPlanStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  ON_HOLD
+}
+
+enum TrainingType {
+  TECHNICAL
+  BEHAVIORAL
+  LEADERSHIP
+  SAFETY
+  QUALITY
+  COMPLIANCE
+  OTHER
+}
+
+enum TrainingCompletionStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  FAILED
+}
+
+enum IndicatorType {
+  TURNOVER_RATE
+  ABSENTEEISM_RATE
+  PRODUCTIVITY
+  TRAINING_HOURS
+  SATISFACTION_INDEX
+  RECRUITMENT_TIME
+  COST_PER_HIRE
+  PROMOTION_RATE
+}
