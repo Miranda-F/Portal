@@ -2,7 +2,7 @@
 
 import { Suspense } from "react"
 import { Loading } from "@/components/ui/loading-spinner"
-import HomeContent from "@/components/HomeContent"
+import LoginPage from "@/components/LoginPage"
 
 export default function Home() {
   return (
@@ -11,7 +11,7 @@ export default function Home() {
         <Loading size="xl" text="Carregando..." />
       </div>
     }>
-      <HomeContent />
+      <LoginPage />
     </Suspense>
   )
 }
