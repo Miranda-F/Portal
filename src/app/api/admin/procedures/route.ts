@@ -29,7 +29,6 @@ export async function GET(request: NextRequest) {
         SELECT id, title, type FROM Procedure
       `
       
-      console.log('Current procedures in database:', allProcedures)
       
       // Check for old enum values
       const proceduresWithOldTypes = await db.$queryRaw`
@@ -37,7 +36,6 @@ export async function GET(request: NextRequest) {
         WHERE type IN ('QUALITY', 'INSPECTION', 'STRATIFICATION', 'ANNOUNCEMENT')
       `
       
-      console.log('Procedures with old types:', proceduresWithOldTypes)
       
       if (Array.isArray(proceduresWithOldTypes) && proceduresWithOldTypes.length > 0) {
         // Update them
@@ -47,7 +45,6 @@ export async function GET(request: NextRequest) {
           WHERE type IN ('QUALITY', 'INSPECTION', 'STRATIFICATION', 'ANNOUNCEMENT')
         `
         
-        console.log('Updated procedures:', updateResult)
       }
       
       // Now try to get procedures with proper includes
@@ -89,7 +86,6 @@ export async function GET(request: NextRequest) {
           ORDER BY p.createdAt DESC
         `
         
-        console.log('Raw query result:', simpleProcedures)
         
         // Transform the result to match the expected format
         const formattedProcedures = Array.isArray(simpleProcedures) ? simpleProcedures.map(p => ({
@@ -171,9 +167,7 @@ export async function POST(request: NextRequest) {
         
         // Save file to public directory
         const path = join(process.cwd(), 'public', 'uploads', 'procedures', filename)
-        console.log('Saving file to:', path)
         await writeFile(path, buffer)
-        console.log('File saved successfully')
 
         fileUrl = `/uploads/procedures/${filename}`
         fileName = originalName
@@ -231,7 +225,6 @@ export async function POST(request: NextRequest) {
           },
         },
       })
-      console.log('Procedure created successfully:', procedure.id)
 
       // Create history record for procedure creation
       try {
@@ -249,7 +242,6 @@ export async function POST(request: NextRequest) {
             fileUrl: procedure.fileUrl,
           }
         })
-        console.log('Procedure history created successfully')
       } catch (historyError) {
         console.error('Error creating procedure history:', historyError)
         // Don't fail the whole operation if history creation fails

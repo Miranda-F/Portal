@@ -46,10 +46,11 @@ export function ThemeToggle() {
 
   return (
     <Button 
-      variant="outline" 
+      variant="ghost" 
       size="icon" 
       onClick={toggleTheme}
       title={getThemeLabel()}
+      className="text-white hover:bg-white/10"
     >
       {getThemeIcon()}
       <span className="sr-only">Alternar tema</span>

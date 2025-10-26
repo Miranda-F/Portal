@@ -58,21 +58,16 @@ export async function PUT(request: NextRequest) {
 
     // Check if photo should be removed
     const removePhoto = formData.get('removePhoto') === 'true'
-    console.log('Remove photo flag:', removePhoto)
     
     if (removePhoto) {
-      console.log('Removing profile photo...')
-      console.log('Current user photoUrl:', currentUser.photoUrl)
       
       // Delete old photo if exists
       if (currentUser.photoUrl && currentUser.photoUrl.startsWith('/uploads/profiles/')) {
         const oldFilePath = join(process.cwd(), 'public', currentUser.photoUrl)
-        console.log('Attempting to delete file:', oldFilePath)
         try {
           // Import fs module for proper file deletion
           const { unlink } = await import('fs/promises')
           await unlink(oldFilePath)
-          console.log('Old photo deleted:', oldFilePath)
         } catch (error) {
           console.warn('Could not delete old profile photo:', error)
         }
@@ -80,13 +75,11 @@ export async function PUT(request: NextRequest) {
       
       // Set photoUrl to null
       photoUrl = null
-      console.log('PhotoUrl set to null')
     }
 
     // Handle photo upload
     if (photo) {
       try {
-        console.log('Processing photo upload:', photo.name, photo.size, photo.type)
         const bytes = await photo.arrayBuffer()
         const buffer = Buffer.from(bytes)
 
@@ -100,7 +93,6 @@ export async function PUT(request: NextRequest) {
 
         // Write file
         await writeFile(filePath, buffer)
-        console.log('Photo saved successfully:', filePath)
 
         // Update photo URL
         photoUrl = `/uploads/profiles/${fileName}`
@@ -112,7 +104,6 @@ export async function PUT(request: NextRequest) {
             // Import fs module for proper file deletion
             const { unlink } = await import('fs/promises')
             await unlink(oldFilePath)
-            console.log('Old photo deleted:', oldFilePath)
           } catch (error) {
             console.warn('Could not delete old profile photo:', error)
           }
@@ -157,7 +148,6 @@ export async function PUT(request: NextRequest) {
       }
     })
 
-    console.log('Updated user photoUrl:', updatedUser.photoUrl)
     return NextResponse.json(updatedUser)
   } catch (error) {
     console.error('Error updating user profile:', error)

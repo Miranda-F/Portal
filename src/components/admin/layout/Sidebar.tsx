@@ -10,9 +10,10 @@ import {
   Users2, 
   FileSearch, 
   Menu, 
-  LogIn,
-  Home
+  Home,
+  LogOut
 } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from 'next/link'
 
 interface SidebarProps {
@@ -33,27 +34,41 @@ export default function Sidebar({
   logout
 }: SidebarProps) {
   return (
-    <aside className={`bg-background border-r transition-all duration-300 ${
-      sidebarCollapsed ? 'w-16' : 'w-64'
-    }`}>
+    <aside className={`transition-all duration-300 ${
+      sidebarCollapsed ? 'w-16' : 'w-72'
+    } bg-muted/30 dark:bg-neutral-900 border-r`}>
       <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center justify-end p-4 border-b">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onSidebarToggle}
-            className="p-2"
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
+        {/* Brand / User */}
+        <div className="p-4 border-b">
+          <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
+            {!sidebarCollapsed && (
+              <div className="flex items-center gap-3">
+                <Avatar className="size-9">
+                  <AvatarImage src="/logo-portal-pratagy.webp" alt="Logo" />
+                  <AvatarFallback>P</AvatarFallback>
+                </Avatar>
+                <div className="leading-tight">
+                  <p className="text-sm font-semibold">Portal Admin</p>
+                  <p className="text-xs text-muted-foreground">Bem-vindo</p>
+                </div>
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSidebarToggle}
+              className="p-2"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-3 space-y-1">
           <Button
             variant={activeTab === "dashboard" ? "default" : "ghost"}
-            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'} rounded-xl`}
             onClick={() => onTabChange("dashboard")}
             title={sidebarCollapsed ? "Dashboard" : ""}
           >
@@ -63,7 +78,7 @@ export default function Sidebar({
           
           <Button
             variant={activeTab === "general" ? "default" : "ghost"}
-            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'} rounded-xl`}
             onClick={() => onTabChange("general")}
             title={sidebarCollapsed ? "Geral" : ""}
           >
@@ -73,7 +88,7 @@ export default function Sidebar({
           
           <Button
             variant={activeTab === "users" ? "default" : "ghost"}
-            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'} rounded-xl`}
             onClick={() => onTabChange("users")}
             title={sidebarCollapsed ? "Usuários" : ""}
           >
@@ -94,7 +109,7 @@ export default function Sidebar({
           
           <Button
             variant={activeTab === "sectors" ? "default" : "ghost"}
-            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'} rounded-xl`}
             onClick={() => onTabChange("sectors")}
             title={sidebarCollapsed ? "Setores" : ""}
           >
@@ -104,7 +119,7 @@ export default function Sidebar({
           
           <Button
             variant={activeTab === "groups" ? "default" : "ghost"}
-            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'} rounded-xl`}
             onClick={() => onTabChange("groups")}
             title={sidebarCollapsed ? "Grupos" : ""}
           >
@@ -116,7 +131,7 @@ export default function Sidebar({
           
           <Button
             variant={activeTab === "audit-logs" ? "default" : "ghost"}
-            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'} rounded-xl`}
             onClick={() => onTabChange("audit-logs")}
             title={sidebarCollapsed ? "Logs de auditoria" : ""}
           >
@@ -130,7 +145,14 @@ export default function Sidebar({
 
         {/* Footer */}
         <div className="p-4 border-t">
-          {/* Footer vazio - botões movidos para o topo da página */}
+          <Button
+            variant="ghost"
+            className={`w-full justify-start ${sidebarCollapsed ? 'px-2' : 'px-3'} rounded-xl`}
+            onClick={logout}
+          >
+            <LogOut className="h-4 w-4" />
+            {!sidebarCollapsed && <span className="ml-2">Sair</span>}
+          </Button>
         </div>
       </div>
     </aside>

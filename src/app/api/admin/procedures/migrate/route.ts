@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
       WHERE type IN ('QUALITY', 'INSPECTION', 'STRATIFICATION', 'ANNOUNCEMENT')
     `
     
-    console.log('Migration result:', result)
 
     return NextResponse.json({ 
       message: 'Database migration completed successfully',

@@ -420,6 +420,11 @@ export function useAuth(): UseAuthReturn {
       const data = await response.json()
       const validatedUser = validateUserData(data.user)
       
+      // Save user role to sessionStorage for redirect logic
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('userRole', validatedUser.role)
+      }
+      
       updateAuthState(validatedUser, setUser, setLastAuthCheck)
       toast({
         title: "Login realizado com sucesso!",
@@ -462,6 +467,12 @@ export function useAuth(): UseAuthReturn {
       
       clearStoreAuth()
       clearAuthCache()
+      
+      // Clear sessionStorage
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('userRole')
+      }
+      
       toast({
         title: "Logout realizado",
         description: "Você foi desconectado com sucesso."
@@ -477,6 +488,11 @@ export function useAuth(): UseAuthReturn {
       // Mesmo se falhar comunicação com servidor, limpa estado local
       clearStoreAuth()
       clearAuthCache()
+      
+      // Clear sessionStorage even on error
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('userRole')
+      }
       
       if (errorType !== ErrorType.TIMEOUT && errorType !== ErrorType.NETWORK) {
         toast({

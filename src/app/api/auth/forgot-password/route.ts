@@ -26,7 +26,6 @@ export async function POST(request: NextRequest) {
     
     // TODO: Implement actual email sending logic here
     // For now, we'll just simulate the email sending
-    console.log(`Password reset requested for: ${validatedData.email}`)
     
     // In a real implementation, you would:
     // 1. Generate a reset token

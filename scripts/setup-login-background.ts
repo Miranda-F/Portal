@@ -1,33 +1,62 @@
-import { db } from '../src/lib/db'
+import { PrismaClient } from '@prisma/client'
+import fs from 'fs'
+import path from 'path'
+
+const prisma = new PrismaClient()
 
 async function setupLoginBackground() {
   try {
-    // Verificar se já existe uma configuração
-    const existingSetting = await db.setting.findUnique({
-      where: { key: 'login_background_image' }
-    })
+    console.log('🖼️ Configurando background de login...')
 
-    if (existingSetting) {
-      console.log('Login background setting already exists:', existingSetting.value)
-      return
+    // Verificar se a pasta de uploads existe
+    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'login-background')
+    
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true })
+      console.log('✅ Pasta de uploads criada')
     }
 
-    // Usar uma das imagens existentes
-    const backgroundImageUrl = '/uploads/login-background/login-background-1755913285560.jpg'
+    // Criar configuração padrão de background
+    const defaultBackground = {
+      id: 'default-login-bg',
+      filename: 'default-background.jpg',
+      originalName: 'default-background.jpg',
+      mimeType: 'image/jpeg',
+      size: 0,
+      path: '/uploads/login-background/default-background.jpg',
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
 
-    // Criar a configuração
-    const setting = await db.setting.create({
-      data: {
-        key: 'login_background_image',
-        value: backgroundImageUrl
-      }
+    // Verificar se já existe configuração
+    const existing = await prisma.loginBackground.findFirst({
+      where: { id: defaultBackground.id }
     })
 
-    console.log('Login background setting created successfully:', setting.value)
+    if (!existing) {
+      await prisma.loginBackground.create({
+        data: defaultBackground
+      })
+      console.log('✅ Configuração de background criada')
+    } else {
+      console.log('⚠️  Configuração de background já existe')
+    }
+
+    // Criar arquivo de placeholder se não existir
+    const placeholderPath = path.join(uploadsDir, 'default-background.jpg')
+    if (!fs.existsSync(placeholderPath)) {
+      // Criar um arquivo vazio como placeholder
+      fs.writeFileSync(placeholderPath, '')
+      console.log('✅ Arquivo placeholder criado')
+    }
+
+    console.log('✅ Setup de background de login concluído!')
+
   } catch (error) {
-    console.error('Error setting up login background:', error)
+    console.error('❌ Erro ao configurar background de login:', error)
   } finally {
-    await db.$disconnect()
+    await prisma.$disconnect()
   }
 }
 

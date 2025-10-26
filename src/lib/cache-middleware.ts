@@ -43,7 +43,6 @@ export function triggerCacheEvent(event: CacheEvent): void {
   
   tags.forEach(tag => {
     const invalidated = invalidateCacheByTag(tag)
-    console.log(`Cache invalidated for tag "${tag}": ${invalidated} entries`)
   })
 }
 
@@ -135,7 +134,6 @@ export function cacheMiddleware(request: NextRequest): NextResponse | null {
  */
 export function clearAllCache(): void {
   cacheManager.clear()
-  console.log('All cache cleared')
 }
 
 /**
@@ -165,6 +163,3 @@ export function checkCacheHealth(): { healthy: boolean; issues: string[] } {
     issues,
   }
 }
-
-// Exportar tipos e enums
-export { CacheEvent }
