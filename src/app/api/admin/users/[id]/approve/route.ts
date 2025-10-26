@@ -3,15 +3,19 @@ import { verifySession, getSessionCookie } from '@/lib/session'
 import { db } from '@/lib/db'
 import { logAuthEvent, getClientIP, getUserAgent } from '@/lib/auth-utils'
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const token = getSessionCookie(request)
+    const { id } = await params
     
-    if (!token) {
+    const token = getSessionCookie(request)
+    const accessToken = request.cookies.get('access_token')?.value
+    const finalToken = token || accessToken
+    
+    if (!finalToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     
-    const session = await verifySession(token)
+    const session = await verifySession(finalToken)
     
     if (!session || session.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -19,126 +23,143 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const { approved } = await request.json()
 
-    // Buscar o usuário antes de atualizar para obter informações para o log
-    const userBeforeUpdate = await db.user.findUnique({
-      where: { id: params.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        approved: true,
-      },
-    })
-
-    if (!userBeforeUpdate) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    // Atualizar o status do usuário
-    const updatedUser = await db.user.update({
-      where: { id: params.id },
-      data: { approved },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        approved: true,
-        updatedAt: true,
-      },
-    })
-
-    // Se o usuário foi desativado (approved = false), também desativar o funcionário correspondente no RH
-    // Se o usuário foi ativado (approved = true), também ativar o funcionário correspondente no RH
-    try {
-      // Buscar funcionário pelo email do usuário
-      const employee = await db.employee.findFirst({
-        where: { email: userBeforeUpdate.email }
-      })
-
-      if (employee) {
-        const newStatus = approved ? 'ACTIVE' : 'INACTIVE'
-        
-        // Atualizar o status do funcionário
-        await db.employee.update({
-          where: { id: employee.id },
-          data: { status: newStatus }
-        })
-
-        // Criar histórico de alteração de status do funcionário
-        await db.employeeHistory.create({
-          data: {
-            employeeId: employee.id,
-            type: 'STATUS_CHANGE',
-            title: approved ? 'Ativação de Usuário' : 'Desativação de Usuário',
-            description: `Funcionário ${approved ? 'ativado' : 'desativado'} devido à ${approved ? 'ativação' : 'desativação'} do usuário no sistema`,
-            date: new Date(),
-            oldValues: JSON.stringify({ status: employee.status }),
-            newValues: JSON.stringify({ status: newStatus }),
+    // Usar transação para garantir consistência e melhor performance
+    const result = await db.$transaction(async (tx) => {
+      // Buscar o usuário e funcionário em paralelo
+      const [userBeforeUpdate, employee] = await Promise.all([
+        tx.user.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            approved: true,
+          },
+        }),
+        // Buscar funcionário apenas se necessário (otimização)
+        tx.employee.findFirst({
+          where: { 
+            email: {
+              // Usar uma query mais eficiente
+              in: await tx.user.findUnique({
+                where: { id },
+                select: { email: true }
+              }).then(user => user ? [user.email] : [])
+            }
+          },
+          select: {
+            id: true,
+            status: true,
+            email: true
           }
         })
-      }
-    } catch (error) {
-      console.error('Error updating employee status:', error)
-      // Não falhar a operação principal se não conseguir atualizar o funcionário
-    }
+      ])
 
-    // Registrar o evento de aprovação/desaprovação nos logs de auditoria
-    await db.auditLog.create({
-      data: {
-        userId: session.id,
-        userName: session.name,
-        userEmail: session.email,
-        userRole: session.role,
-        action: approved ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
-        actionType: 'APPROVE',
-        description: approved 
-          ? `Usuário ${userBeforeUpdate.name} (${userBeforeUpdate.email}) foi ativado`
-          : `Usuário ${userBeforeUpdate.name} (${userBeforeUpdate.email}) foi desativado`,
-        entityType: 'User',
-        entityId: userBeforeUpdate.id,
-        entityName: userBeforeUpdate.name,
-        ipAddress: getClientIP(request),
-        userAgent: getUserAgent(request),
-        result: 'SUCCESS',
-        details: JSON.stringify({
-          oldStatus: userBeforeUpdate.approved,
-          newStatus: approved,
-          action: approved ? 'activated' : 'deactivated',
-          employeeStatusUpdated: true
-        }),
+      if (!userBeforeUpdate) {
+        throw new Error('User not found')
       }
+
+      // Atualizar usuário
+      const updatedUser = await tx.user.update({
+        where: { id },
+        data: { approved },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          approved: true,
+          updatedAt: true,
+        },
+      })
+
+      // Atualizar funcionário se existir (em paralelo com o log de auditoria)
+      const employeeUpdatePromise = employee ? (async () => {
+        const newStatus = approved ? 'ACTIVE' : 'INACTIVE'
+        
+        await Promise.all([
+          tx.employee.update({
+            where: { id: employee.id },
+            data: { status: newStatus }
+          }),
+          tx.employeeHistory.create({
+            data: {
+              employeeId: employee.id,
+              type: 'OTHER',
+              title: approved ? 'Ativação de Usuário' : 'Desativação de Usuário',
+              description: `Funcionário ${approved ? 'ativado' : 'desativado'} devido à ${approved ? 'ativação' : 'desativação'} do usuário no sistema`,
+              date: new Date(),
+              oldValues: JSON.stringify({ status: employee.status }),
+              newValues: JSON.stringify({ status: newStatus }),
+            }
+          })
+        ])
+      })() : Promise.resolve()
+
+      // Criar log de auditoria em paralelo
+      const auditLogPromise = tx.auditLog.create({
+        data: {
+          userId: session.userId,
+          userName: session.name,
+          userEmail: session.email,
+          userRole: session.role,
+          action: approved ? 'USER_ACTIVATED' : 'USER_DEACTIVATED',
+          actionType: 'UPDATE',
+          description: approved 
+            ? `Usuário ${userBeforeUpdate.name} (${userBeforeUpdate.email}) foi ativado`
+            : `Usuário ${userBeforeUpdate.name} (${userBeforeUpdate.email}) foi desativado`,
+          entityType: 'User',
+          entityId: userBeforeUpdate.id,
+          entityName: userBeforeUpdate.name,
+          ipAddress: getClientIP(request) || 'unknown',
+          userAgent: getUserAgent(request) || 'unknown',
+          result: 'SUCCESS',
+          details: JSON.stringify({
+            oldStatus: userBeforeUpdate.approved,
+            newStatus: approved,
+            action: approved ? 'activated' : 'deactivated',
+            employeeStatusUpdated: !!employee
+          }),
+        }
+      })
+
+      // Aguardar operações em paralelo
+      await Promise.all([employeeUpdatePromise, auditLogPromise])
+
+      return updatedUser
     })
 
-    return NextResponse.json(updatedUser)
+    return NextResponse.json(result)
   } catch (error) {
     console.error('Error updating user approval status:', error)
     
-    // Registrar erro nos logs de auditoria
-    try {
-      const session = await verifySession(getSessionCookie(request) || '')
-      if (session) {
-        await db.auditLog.create({
-          data: {
-            userId: session.id,
-            userName: session.name,
-            userEmail: session.email,
-            userRole: session.role,
-            action: 'USER_STATUS_UPDATE_FAILED',
-            actionType: 'UPDATE',
-            description: `Falha ao atualizar status do usuário ${params.id}`,
-            entityType: 'User',
-            entityId: params.id,
-            ipAddress: getClientIP(request),
-            userAgent: getUserAgent(request),
-            result: 'FAILURE',
-            errorMessage: error instanceof Error ? error.message : 'Unknown error',
-          }
-        })
+    // Registrar erro nos logs de auditoria (sem bloquear a resposta)
+    setImmediate(async () => {
+      try {
+        const session = await verifySession(getSessionCookie(request) || '')
+        if (session) {
+          await db.auditLog.create({
+            data: {
+              userId: session.userId,
+              userName: session.name,
+              userEmail: session.email,
+              userRole: session.role,
+              action: 'USER_STATUS_UPDATE_FAILED',
+              actionType: 'UPDATE',
+              description: `Falha ao atualizar status do usuário`,
+              entityType: 'User',
+              entityId: 'unknown',
+              ipAddress: getClientIP(request) || 'unknown',
+              userAgent: getUserAgent(request) || 'unknown',
+              result: 'FAILURE',
+              errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            }
+          })
+        }
+      } catch (logError) {
+        console.error('Error logging audit event:', logError)
       }
-    } catch (logError) {
-      console.error('Error logging audit event:', logError)
-    }
+    })
 
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

@@ -5,32 +5,37 @@ const prisma = new PrismaClient()
 
 async function createDeactivatedUser() {
   try {
-    const hashedPassword = await hashPassword('test123')
+    console.log('👤 Criando usuário desativado...')
+
+    // Buscar setor padrão
+    const sector = await prisma.sector.findFirst()
     
-    const deactivatedUser = await prisma.user.create({
+    if (!sector) {
+      console.log('❌ Nenhum setor encontrado. Execute create-sectors.ts primeiro.')
+      return
+    }
+
+    // Criar usuário desativado
+    const user = await prisma.user.create({
       data: {
-        email: 'deactivated@pratagy.com.br',
         name: 'Usuário Desativado',
-        password: hashedPassword,
+        email: 'desativado@pratagy.com.br',
+        password: await hashPassword('123456'),
         role: 'USER',
-        approved: false, // Usuário desativado
-      },
+        approved: false, // Usuário não aprovado
+        sectorId: sector.id
+      }
     })
-    
-    console.log('Usuário desativado criado com sucesso:', {
-      id: deactivatedUser.id,
-      email: deactivatedUser.email,
-      name: deactivatedUser.name,
-      role: deactivatedUser.role,
-      approved: deactivatedUser.approved,
-    })
-    
-    console.log('Você pode testar o login com:')
-    console.log('Email: deactivated@pratagy.com.br')
-    console.log('Password: test123')
-    console.log('Este usuário deve receber a mensagem de conta desativada.')
+
+    console.log('✅ Usuário desativado criado com sucesso!')
+    console.log('📧 Email:', user.email)
+    console.log('🔑 Senha: 123456')
+    console.log('👤 Nome:', user.name)
+    console.log('❌ Status: Desativado (não aprovado)')
+    console.log('🏢 Setor:', sector.name)
+
   } catch (error) {
-    console.error('Erro ao criar usuário desativado:', error)
+    console.error('❌ Erro ao criar usuário desativado:', error)
   } finally {
     await prisma.$disconnect()
   }

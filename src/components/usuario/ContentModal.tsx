@@ -1,6 +1,6 @@
 "use client"
 
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { FileText, ExternalLink } from "lucide-react"
 import { Procedure } from "@/types/usuario"
@@ -31,21 +31,21 @@ export function ContentModal({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] p-0">
-        <div className="flex flex-col">
-          {/* Modal Header */}
-          <div className="flex items-center justify-between p-4 border-b bg-muted">
-            <div className="flex items-center gap-3">
-              <FileText className="h-6 w-6 text-primary" />
-              <div>
-                <h3 className="text-lg font-semibold">
-                  {selectedProcedure?.title || 'Conteúdo do Procedimento'}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {selectedProcedure ? getProcedureTypeLabel(selectedProcedure.type) : ''}
-                </p>
-              </div>
+        <DialogHeader className="p-4 border-b bg-muted">
+          <div className="flex items-center gap-3">
+            <FileText className="h-6 w-6 text-primary" />
+            <div>
+              <DialogTitle className="text-lg font-semibold">
+                {selectedProcedure?.title || 'Conteúdo do Procedimento'}
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                {selectedProcedure ? getProcedureTypeLabel(selectedProcedure.type) : ''}
+              </p>
             </div>
           </div>
+        </DialogHeader>
+        
+        <div className="flex flex-col">
 
           {/* Content Area */}
           <div className="flex-1 overflow-auto p-6 bg-background">

@@ -132,7 +132,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         try {
           const oldPath = join(process.cwd(), 'public', existingProcedure.fileUrl)
           await unlink(oldPath)
-          console.log('File deleted:', existingProcedure.fileUrl)
         } catch (error) {
           console.error('Error deleting file:', error)
         }
@@ -155,14 +154,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (content !== null) updateData.content = content || null
     if (type) updateData.type = type
     if (status) updateData.status = status
-    console.log('Received sectorId:', sectorId, 'type:', typeof sectorId)
-    console.log('Update data before sectorId check:', updateData)
     
     if (sectorId !== null) {
       updateData.sectorId = sectorId || null
-      console.log('Setting sectorId to:', updateData.sectorId)
     }
-    console.log('Final update data:', updateData)
     if (documentDateStr) updateData.documentDate = new Date(documentDateStr)
     if (expiryDate) updateData.expiryDate = expiryDate
     if (fileUrl !== existingProcedure.fileUrl) {
@@ -223,7 +218,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         oldValues,
         newValues,
       })
-      console.log('Procedure history updated successfully')
     } catch (historyError) {
       console.error('Error creating procedure history:', historyError)
       // Don't fail the whole operation if history creation fails

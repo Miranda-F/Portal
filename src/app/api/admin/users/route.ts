@@ -26,9 +26,18 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
+    const pending = searchParams.get('pending') === 'true'
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100) // Max 100 por página
+    const skip = (page - 1) * limit
 
     // Build where clause
     const whereClause: any = {}
+    
+    // Add pending filter
+    if (pending) {
+      whereClause.approved = false
+    }
     
     // Add search filter if provided
     if (search.trim()) {
@@ -38,132 +47,49 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    const users = await db.user.findMany({
-      where: whereClause,
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        sectorId: true,
-        role: true,
-        photoUrl: true,
-        approved: true,
-        lastLogin: true,
-        createdAt: true,
-        updatedAt: true,
-        showIdentityCard: true,
-        sector: {
-          select: {
-            id: true,
-            name: true
+    // Usar Promise.all para buscar dados e contagem em paralelo
+    const [users, totalCount] = await Promise.all([
+      db.user.findMany({
+        where: whereClause,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          sectorId: true,
+          role: true,
+          photoUrl: true,
+          approved: true,
+          lastLogin: true,
+          createdAt: true,
+          updatedAt: true,
+          showIdentityCard: true,
+          sector: {
+            select: {
+              id: true,
+              name: true
+            }
           }
         }
+      }),
+      db.user.count({ where: whereClause })
+    ])
+
+    return NextResponse.json({
+      users,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        hasNext: page < Math.ceil(totalCount / limit),
+        hasPrev: page > 1
       }
     })
-
-    return NextResponse.json(users)
   } catch (error) {
     console.error('Error fetching users:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const authUser = await getAuthUser(request)
-    
-    if (!authUser || authUser.userRole !== 'ADMIN') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { email, name, sectorId, role = 'USER', password } = await request.json()
-
-    if (!email || !name) {
-      return NextResponse.json({ error: 'Email and name are required' }, { status: 400 })
-    }
-
-    if (!password) {
-      return NextResponse.json({ error: 'Password is required' }, { status: 400 })
-    }
-
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({
-      where: { email }
-    })
-
-    if (existingUser) {
-      return NextResponse.json({ error: 'User with this email already exists' }, { status: 400 })
-    }
-
-    // Use the provided password instead of generating a temporary one
-    const hashedPassword = await import('@/lib/auth').then(({ hashPassword }) => hashPassword(password))
-
-    const user = await db.user.create({
-      data: {
-        email,
-        name,
-        sectorId,
-        role,
-        password: hashedPassword,
-        approved: true, // All users are approved by default
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        sectorId: true,
-        role: true,
-        photoUrl: true,
-        approved: true,
-        lastLogin: true,
-        createdAt: true,
-        updatedAt: true,
-        showIdentityCard: true,
-        sector: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
-      }
-    })
-
-    // Registrar auditoria da criação do usuário
-    const adminUser = await db.user.findUnique({
-      where: { id: authUser.userId },
-      select: { name: true, email: true, role: true }
-    })
-
-    if (adminUser) {
-      await auditCrudAction(
-        request,
-        'CREATE',
-        'USER',
-        user.id,
-        user.name,
-        {
-          id: adminUser.id,
-          name: adminUser.name,
-          email: adminUser.email,
-          role: adminUser.role
-        },
-        null,
-        {
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          sectorId: user.sectorId
-        }
-      )
-    }
-
-    return NextResponse.json({ 
-      user, 
-      message: 'User created successfully' 
-    })
-  } catch (error) {
-    console.error('Error creating user:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

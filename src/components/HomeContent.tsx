@@ -150,9 +150,16 @@ export default function HomeContent() {
       // Clear the login flag
       sessionStorage.removeItem('loginInProgress')
       
-      // Use router.push for instant and smooth transition
-      // The auth state is already updated by the login function
-      router.push('/usuario')
+      // Redirect based on user role
+      // Wait a bit for the auth state to be updated
+      setTimeout(() => {
+        const userRole = sessionStorage.getItem('userRole')
+        if (userRole === 'ADMIN') {
+          router.push('/admin')
+        } else {
+          router.push('/usuario')
+        }
+      }, 100)
     } catch (error) {
       // Toast is already handled by the login function
       console.error('Login error in component:', error)

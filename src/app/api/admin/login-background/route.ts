@@ -41,7 +41,6 @@ export async function GET() {
         .map(file => `/uploads/login-background/${file}`)
     } catch (error) {
       // Diretório não existe ou não há permissão
-      console.log('Login background directory not found or empty')
     }
 
     // Buscar a configuração da imagem de fundo no banco de dados (para compatibilidade)

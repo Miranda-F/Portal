@@ -46,7 +46,6 @@ export function useProfileManagement() {
       
       // Forçar a atualização da foto usando um timestamp para evitar cache
       const photoUrl = photoUrlToUse ? `${photoUrlToUse}?t=${Date.now()}` : ""
-      console.log('Opening profile modal with photoUrl:', photoUrl)
       
       setProfileForm({
         name: user.name,
@@ -79,11 +78,9 @@ export function useProfileManagement() {
   }
 
   const handleCropComplete = (croppedImage: string) => {
-    console.log('Cropped image received, length:', croppedImage.length)
     
     // Usar diretamente a imagem recortada como preview
     const newPhotoUrl = croppedImage
-    console.log('Setting new photoUrl:', newPhotoUrl.substring(0, 50) + '...')
     
     setProfileForm(prev => ({
       ...prev,
@@ -94,14 +91,12 @@ export function useProfileManagement() {
     fetch(croppedImage)
       .then(res => res.blob())
       .then(blob => {
-        console.log('Blob created, size:', blob.size, 'type:', blob.type)
         
         // Ensure the blob is converted to a valid File object
         const file = new File([blob], "profile-photo.jpg", { 
           type: "image/jpeg",
           lastModified: Date.now()
         })
-        console.log('Created file:', file.name, file.size, file.type)
         
         // Atualizar o form com o arquivo
         setProfileForm(prev => ({
@@ -182,29 +177,13 @@ export function useProfileManagement() {
       }
       
       if (profileForm.photoFile) {
-        console.log('Adding photo to FormData:', profileForm.photoFile.name, profileForm.photoFile.size, profileForm.photoFile.type)
         formData.append('photo', profileForm.photoFile)
       }
       
       // Verificar se a foto foi removida (photoUrl está vazio mas usuário tinha foto antes)
-      console.log('=== PHOTO REMOVAL DEBUG ===')
-      console.log('profileForm.photoUrl:', profileForm.photoUrl)
-      console.log('profileForm.photoUrl type:', typeof profileForm.photoUrl)
-      console.log('profileForm.photoUrl length:', profileForm.photoUrl?.length)
-      console.log('user.photoUrl:', user?.photoUrl)
-      console.log('user.photoUrl type:', typeof user?.photoUrl)
-      console.log('user.photoUrl length:', user?.photoUrl?.length)
-      console.log('!profileForm.photoUrl:', !profileForm.photoUrl)
-      console.log('user?.photoUrl:', !!user?.photoUrl)
-      console.log('Condition result:', !profileForm.photoUrl && user?.photoUrl)
-      
       if (!profileForm.photoUrl && user?.photoUrl) {
-        console.log('Photo removal detected, sending removePhoto flag')
         formData.append('removePhoto', 'true')
-      } else {
-        console.log('Photo removal not detected')
       }
-      console.log('=== END PHOTO REMOVAL DEBUG ===')
 
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
@@ -213,17 +192,13 @@ export function useProfileManagement() {
 
       if (response.ok) {
         const updatedUser = await response.json()
-        console.log('Profile updated successfully:', updatedUser)
-        console.log('Received photoUrl from server:', updatedUser.photoUrl)
         
         // Verificar se a photoUrl foi retornada corretamente
         if (updatedUser.photoUrl) {
-          console.log('Photo URL returned:', updatedUser.photoUrl)
           // Garantir que a URL seja válida
           const photoUrl = updatedUser.photoUrl.startsWith('http') 
             ? updatedUser.photoUrl 
             : `${window.location.origin}${updatedUser.photoUrl}`
-          console.log('Full photo URL:', photoUrl)
           
           // ATUALIZAR O PROFILEFORM COM A NOVA URL DA FOTO E CACHE-BUSTING
           const photoUrlWithTimestamp = `${updatedUser.photoUrl}?t=${Date.now()}`
@@ -238,7 +213,6 @@ export function useProfileManagement() {
           setPhotoRemoved(false) // Resetar o estado de remoção quando uma nova foto é adicionada
         } else {
           // Se não houver photoUrl, significa que a foto foi removida
-          console.log('Photo removed, clearing photo URLs')
           setProfileForm(prev => ({
             ...prev,
             photoUrl: "",
