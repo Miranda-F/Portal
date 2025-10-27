@@ -22,7 +22,6 @@ import { JobsDisplay } from "@/components/usuario/JobsDisplay"
 import { EventsDisplay } from "@/components/usuario/EventsDisplay"
 
 import { ProfileModal } from "@/components/usuario/ProfileModal"
-import { ContentModal } from "@/components/usuario/ContentModal"
 
 
 // Types
@@ -99,8 +98,6 @@ export default function UsuarioPage() {
   const [activeTab, setActiveTab] = useState("procedimentos")
   const [searchTerm, setSearchTerm] = useState("")
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards")
-  const [showContentModal, setShowContentModal] = useState(false)
-  const [selectedProcedure, setSelectedProcedure] = useState<Procedure | null>(null)
 
   // Filter functions
   const filteredProcedures = procedures.filter(procedure => 
@@ -123,15 +120,6 @@ export default function UsuarioPage() {
   )
 
   // Modal handlers
-  const openContentModal = (procedure: Procedure) => {
-    setSelectedProcedure(procedure)
-    setShowContentModal(true)
-  }
-
-  const closeContentModal = () => {
-    setShowContentModal(false)
-    setSelectedProcedure(null)
-  }
 
 
 
@@ -220,12 +208,6 @@ export default function UsuarioPage() {
         />
       )}
 
-      {/* Content Viewer Modal */}
-      <ContentModal
-        isOpen={showContentModal}
-        onClose={closeContentModal}
-        selectedProcedure={selectedProcedure}
-      />
 
 
 
@@ -272,7 +254,6 @@ export default function UsuarioPage() {
             <ProceduresDisplay
               procedures={filteredProcedures}
               viewMode={viewMode}
-              onOpenContentModal={openContentModal}
             />
           </TabsContent>
 

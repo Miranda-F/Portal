@@ -88,7 +88,7 @@ export default function TrainingManagement({ activeTab }: TrainingManagementProp
     if (activeTab === "treinamento") {
       loadTrainings()
     }
-  }, [activeTab, loadTrainings])
+  }, [activeTab])
 
   const handleCreateTraining = () => {
     setEditingTraining(null)
