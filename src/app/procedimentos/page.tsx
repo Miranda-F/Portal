@@ -12,6 +12,7 @@ import { DocumentTable } from '@/components/document/document-table'
 import { DocumentModal } from '@/components/document/document-modal'
 import { DeleteDocumentModal } from '@/components/document/delete-document-modal'
 import { DocumentHistoryModal } from '@/components/document/document-history-modal'
+import { DocumentPreviewModal } from '@/components/document/document-preview-modal'
 import { DocumentSecurity } from '@/lib/security/document-security'
 import { Document } from '@/types/document'
 
@@ -43,9 +44,10 @@ export default function ProcedimentosPage() {
     filteredDocuments
   } = useDocumentFilters({ documents })
   
-  // Document history
+  // estados dos modais de documento
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
   const { versions, approvals, access, loading: historyLoading } = useDocumentHistory(selectedDocument?.id || '')
   
   // Document form handling
@@ -73,18 +75,19 @@ export default function ProcedimentosPage() {
     onDocumentDeleted: handleDocumentDeleted
   })
   
-  // Document actions
+  // handlers de acoes dos documentos
   const { handleViewDocument, handleDownloadDocument, handleViewHistory } = useDocumentActions(
     setSelectedDocument,
-    setIsHistoryModalOpen
+    setIsHistoryModalOpen,
+    setIsPreviewModalOpen
   )
   
-  // Security: Check rate limiting for document actions
+  // verifica rate limiting pra acoes de documento
   const canPerformAction = (action: string) => {
-    return DocumentSecurity.checkRateLimit(`document_${action}`, 10, 60000) // 10 actions per minute
+    return DocumentSecurity.checkRateLimit(`document_${action}`, 10, 60000) // 10 acoes por minuto
   }
 
-  // Wrapped action handlers with security checks
+  // wrappers dos handlers com verificacao de seguranca
   const handleEditDocument = (document: Document) => {
     if (!canPerformAction('edit')) {
       alert('Muitas tentativas. Por favor, aguarde um momento.')
@@ -139,7 +142,7 @@ export default function ProcedimentosPage() {
         onDownloadDocument={handleDownloadDocument}
       />
       
-      {/* Create Document Modal */}
+      {/* modal de criacao de documento */}
       <DocumentModal
         isOpen={isCreateDocumentModalOpen}
         onClose={closeCreateModal}
@@ -153,7 +156,7 @@ export default function ProcedimentosPage() {
         isEditing={false}
       />
       
-      {/* Edit Document Modal */}
+      {/* modal de edicao de documento */}
       <DocumentModal
         isOpen={isEditDocumentModalOpen}
         onClose={closeEditModal}
@@ -167,7 +170,7 @@ export default function ProcedimentosPage() {
         isEditing={true}
       />
       
-      {/* Delete Document Modal */}
+      {/* modal de exclusao de documento */}
       <DeleteDocumentModal
         isOpen={isDeleteDocumentModalOpen}
         onClose={closeDeleteModal}
@@ -176,7 +179,7 @@ export default function ProcedimentosPage() {
         isDeleting={isDeletingDocument}
       />
       
-      {/* Document History Modal */}
+      {/* modal de historico do documento */}
       <DocumentHistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => {
@@ -188,6 +191,17 @@ export default function ProcedimentosPage() {
         approvals={approvals}
         access={access}
         loading={historyLoading}
+      />
+      
+      {/* modal de preview do documento */}
+      <DocumentPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => {
+          setIsPreviewModalOpen(false)
+          setSelectedDocument(null)
+        }}
+        document={selectedDocument}
+        onDownload={handleDownloadDocument}
       />
     </div>
   )

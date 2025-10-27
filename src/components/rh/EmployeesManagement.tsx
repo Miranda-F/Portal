@@ -93,7 +93,7 @@ export default function EmployeesManagement({ activeTab }: EmployeesManagementPr
       loadEmployees()
       loadSectors()
     }
-  }, [activeTab, loadEmployees, loadSectors])
+  }, [activeTab])
 
   const handleCreateEmployee = () => {
     setEmployeeForm({

@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { FileText, ExternalLink } from "lucide-react"
 import { Procedure } from "@/types/usuario"
+import { DocumentPreviewModal } from "@/components/document/document-preview-modal"
+import { useState } from "react"
 
 interface ContentModalProps {
   isOpen: boolean
@@ -16,6 +18,8 @@ export function ContentModal({
   onClose,
   selectedProcedure
 }: ContentModalProps) {
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<any>(null)
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR')
   }
@@ -25,6 +29,48 @@ export function ContentModal({
       case 'MANAGEMENT_PROCEDURE': return 'Procedimento de Gestão'
       case 'WORK_INSTRUCTION': return 'Instrução de Trabalho'
       default: return type
+    }
+  }
+
+  const handleViewPdf = (procedure: Procedure) => {
+    // converte procedure para formato de documento
+    const document = {
+      id: procedure.id,
+      title: procedure.title,
+      code: procedure.fileName?.replace(/\.[^/.]+$/, '') || procedure.title.substring(0, 10),
+      version: '1.0',
+      type: procedure.type === 'MANAGEMENT_PROCEDURE' ? 'management' : 'work_instruction',
+      fileUrl: procedure.fileUrl,
+      fileType: procedure.fileName?.split('.').pop() || 'pdf',
+      fileName: procedure.fileName,
+      description: procedure.content,
+      status: procedure.status === 'PUBLISHED' ? 'active' : 'inactive',
+      responsibleSector: procedure.createdBy?.sectorId || 'N/A',
+      createdAt: procedure.createdAt,
+      updatedAt: procedure.createdAt,
+      createdBy: procedure.createdBy?.name || 'N/A'
+    }
+    
+    setSelectedDocument(document)
+    setIsPreviewModalOpen(true)
+  }
+
+  const handleDownload = (document: any) => {
+    if (document?.fileUrl) {
+      try {
+        const url = new URL(document.fileUrl, window.location.origin)
+        const downloadLink = window.document.createElement('a')
+        downloadLink.href = document.fileUrl
+        downloadLink.download = document.fileName || `${document.title}.pdf`
+        downloadLink.target = '_blank'
+        downloadLink.rel = 'noopener noreferrer'
+        
+        window.document.body.appendChild(downloadLink)
+        downloadLink.click()
+        window.document.body.removeChild(downloadLink)
+      } catch (error) {
+        console.error('Erro ao baixar arquivo:', error)
+      }
     }
   }
 
@@ -101,14 +147,14 @@ export function ContentModal({
                 <div className="pt-4 border-t">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-4">
-                      O PDF está disponível para visualização. Clique no botão abaixo para abri-lo em uma nova aba.
+                      O PDF está disponível para visualização. Clique no botão abaixo para visualizá-lo.
                     </p>
                     <Button
-                      onClick={() => window.open(selectedProcedure.fileUrl, '_blank')}
+                      onClick={() => handleViewPdf(selectedProcedure)}
                       className="flex items-center gap-2 mx-auto"
                     >
-                      <ExternalLink className="h-4 w-4" />
-                      Abrir PDF em Nova Aba
+                      <FileText className="h-4 w-4" />
+                      Visualizar PDF
                     </Button>
                   </div>
                 </div>
@@ -117,6 +163,17 @@ export function ContentModal({
           </div>
         </div>
       </DialogContent>
+      
+      {/* modal de preview do pdf */}
+      <DocumentPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => {
+          setIsPreviewModalOpen(false)
+          setSelectedDocument(null)
+        }}
+        document={selectedDocument}
+        onDownload={handleDownload}
+      />
     </Dialog>
   )
 }

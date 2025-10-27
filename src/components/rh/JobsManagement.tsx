@@ -89,7 +89,7 @@ export default function JobsManagement({ activeTab }: JobsManagementProps) {
       loadJobs()
       loadSectors()
     }
-  }, [activeTab, loadJobs, loadSectors])
+  }, [activeTab])
 
   const handleCreateJob = () => {
     setEditingJob(null)

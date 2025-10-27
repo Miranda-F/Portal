@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { 
   Users, 
@@ -20,8 +21,27 @@ import RHSidebar from "@/components/rh/RHSidebar"
 import { TabValue } from "@/types/rh"
 
 export default function RHPage() {
-  const [activeTab, setActiveTab] = useState<TabValue>("colaboradores")
+  const searchParams = useSearchParams()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // pega aba da url ou usa colaboradores como padrao
+  const getInitialTab = (): TabValue => {
+    const tab = searchParams.get('tab') as TabValue
+    if (tab && ['colaboradores', 'vagas', 'treinamento', 'indicadores'].includes(tab)) {
+      return tab
+    }
+    return "colaboradores"
+  }
+
+  const [activeTab, setActiveTab] = useState<TabValue>(getInitialTab())
+
+  // atualiza aba quando url mudar
+  useEffect(() => {
+    const tab = searchParams.get('tab') as TabValue
+    if (tab && ['colaboradores', 'vagas', 'treinamento', 'indicadores'].includes(tab)) {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   const renderContent = () => {
     switch (activeTab) {
