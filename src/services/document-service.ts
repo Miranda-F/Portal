@@ -21,7 +21,21 @@ export class DocumentService {
       const documentsData = await response.json()
       
       // Transformar dados da API para corresponder à interface Document
-      const transformedDocuments = documentsData.map((doc: any) => ({
+        const transformedDocuments = documentsData.map((doc: any) => {
+        const isExpired = doc.expiryDate ? new Date(doc.expiryDate) < new Date() : false
+        // Mapear status do banco para status da interface
+        // IMPORTANTE: expirado tem prioridade sobre qualquer outro status
+        let status: any = 'inactive' // padrão
+        if (isExpired) {
+          status = 'expired'
+        } else if (doc.status === 'PUBLISHED') {
+          status = 'active'
+        } else if (doc.status === 'DRAFT') {
+          status = 'pending'
+        } else if (doc.status === 'ARCHIVED') {
+          status = 'inactive'
+        }
+        return ({
         id: doc.id,
         code: doc.title.substring(0, 10) || "DOC-" + doc.id.substring(0, 4),
         title: doc.title,
@@ -30,7 +44,7 @@ export class DocumentService {
         reviewDate: doc.documentDate ? new Date(doc.documentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         nextReviewDate: doc.expiryDate ? new Date(doc.expiryDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         responsibleSector: doc.sector?.name || "",
-        status: doc.status === 'PUBLISHED' ? 'active' : doc.status === 'DRAFT' ? 'pending' : 'inactive',
+        status,
         type: doc.type === 'MANAGEMENT_PROCEDURE' ? 'procedure' : 'instruction',
         description: doc.content || "",
         approver: "",
@@ -41,10 +55,13 @@ export class DocumentService {
         fileSize: doc.fileSize,
         fileType: doc.fileName?.split('.').pop() || "",
         accessLevel: "public"
-      }))
+      })})
+
+      // Remover mocks conhecidos (títulos como "Mock Doc ...")
+      const cleanedDocuments = transformedDocuments.filter((d: any) => !/^mock\s+doc/i.test(d.title || ''))
 
       return {
-        data: transformedDocuments,
+        data: cleanedDocuments,
         error: null,
         success: true
       }
@@ -113,7 +130,7 @@ export class DocumentService {
         version: "1.0",
         issueDate: data.documentDate ? new Date(data.documentDate).toISOString().split('T')[0] : formData.issueDate,
         reviewDate: data.documentDate ? new Date(data.documentDate).toISOString().split('T')[0] : formData.issueDate,
-        nextReviewDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : new Date(formData.issueDate),
+        nextReviewDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : new Date(formData.issueDate).toISOString().split('T')[0],
         responsibleSector: data.sector?.name || formData.responsibleSector,
         status: 'active',
         type: formData.type,
@@ -159,9 +176,30 @@ export class DocumentService {
       const apiFormData = new FormData()
       apiFormData.append('title', formData.title)
       apiFormData.append('content', formData.description)
-      apiFormData.append('type', formData.type === 'procedure' ? 'MANAGEMENT_PROCEDURE' : 'WORK_INSTRUCTION')
-      apiFormData.append('status', 'PUBLISHED')
+      
+      // Mapeia status do frontend para backend
+      if (formData.status === 'inactive') {
+        apiFormData.append('type', 'WORK_INSTRUCTION') // "other" mapeado para WORK_INSTRUCTION
+        apiFormData.append('status', 'ARCHIVED')
+      } else if (formData.status === 'expired') {
+        // Para expirado, mantém o tipo e status original, mas define expiryDate no passado
+        apiFormData.append('type', formData.type === 'procedure' ? 'MANAGEMENT_PROCEDURE' : 'WORK_INSTRUCTION')
+        apiFormData.append('status', 'PUBLISHED') // Mantém como PUBLISHED, o expired é calculado pela data
+        // Define expiryDate para ontem para garantir que está expirado
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        apiFormData.append('expiryDate', yesterday.toISOString().split('T')[0])
+      } else {
+        apiFormData.append('type', formData.type === 'procedure' ? 'MANAGEMENT_PROCEDURE' : 'WORK_INSTRUCTION')
+        apiFormData.append('status', formData.status === 'pending' ? 'DRAFT' : 'PUBLISHED')
+      }
+      
       apiFormData.append('documentDate', formData.issueDate)
+      
+      // Se não é expired, deixa o backend calcular a expiryDate normalmente
+      if (formData.status !== 'expired') {
+        // O backend calculará expiryDate baseado em documentDate
+      }
       
       // Encontrar ID do setor a partir do nome do setor
       const sector = sectors.find(s => s.name === formData.responsibleSector)
@@ -191,6 +229,23 @@ export class DocumentService {
       const data = await response.json()
       
       // Transformar a resposta para corresponder à interface Document
+      // IMPORTANTE: expirado tem prioridade sobre qualquer outro status
+      const isExpired = data.expiryDate ? new Date(data.expiryDate) < new Date() : false
+      let status: any = 'inactive' // padrão
+      if (isExpired) {
+        status = 'expired'
+      } else if (data.status === 'PUBLISHED') {
+        status = 'active'
+      } else if (data.status === 'DRAFT') {
+        status = 'pending'
+      } else if (data.status === 'ARCHIVED') {
+        // ARCHIVED do backend é sempre tratado como inactive no frontend
+        status = 'inactive'
+      }
+      
+      // Se o status for inativo, o tipo deve ser "other"
+      const documentType = status === 'inactive' ? 'other' : (formData.type || (data.type === 'MANAGEMENT_PROCEDURE' ? 'procedure' : 'instruction'))
+      
       const updatedDocument: Document = {
         id: data.id,
         code: formData.code,
@@ -198,10 +253,10 @@ export class DocumentService {
         version: formData.version,
         issueDate: data.documentDate ? new Date(data.documentDate).toISOString().split('T')[0] : formData.issueDate,
         reviewDate: data.documentDate ? new Date(data.documentDate).toISOString().split('T')[0] : formData.issueDate,
-        nextReviewDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : new Date(formData.issueDate),
+        nextReviewDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : new Date(formData.issueDate).toISOString().split('T')[0],
         responsibleSector: data.sector?.name || formData.responsibleSector,
-        status: 'active',
-        type: formData.type,
+        status,
+        type: documentType,
         description: data.content || "",
         approver: "",
         createdBy: data.createdBy?.name || "Unknown",

@@ -32,8 +32,32 @@ export function ProceduresDisplay({
     return new Date(dateString).toLocaleDateString('pt-BR')
   }
 
+  const truncateFileName = (fileName: string, maxLength: number = 30) => {
+    if (!fileName || fileName.length <= maxLength) {
+      return fileName
+    }
+    
+    const extension = fileName.split('.').pop()
+    const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'))
+    const truncatedName = nameWithoutExt.substring(0, maxLength)
+    
+    return `${truncatedName}...${extension ? `.${extension}` : ''}`
+  }
+
+  const getFileType = (fileName?: string | null) => {
+    if (!fileName) return 'pdf'
+    const extension = fileName.split('.').pop()?.toLowerCase()
+    return extension === 'docx' || extension === 'doc' ? 'docx' : 'pdf'
+  }
+
+  const getFileTypeLabel = (fileName?: string | null) => {
+    const fileType = getFileType(fileName)
+    return fileType === 'docx' ? 'Visualizar Documento' : 'Visualizar Pdf'
+  }
+
   const handleViewPdf = (procedure: Procedure) => {
     // converte procedure para formato de documento
+    const fileType = getFileType(procedure.fileName)
     const document = {
       id: procedure.id,
       title: procedure.title,
@@ -41,7 +65,7 @@ export function ProceduresDisplay({
       version: '1.0',
       type: procedure.type === 'MANAGEMENT_PROCEDURE' ? 'management' : 'work_instruction',
       fileUrl: procedure.fileUrl,
-      fileType: procedure.fileName?.split('.').pop() || 'pdf',
+      fileType: fileType,
       fileName: procedure.fileName,
       description: procedure.content,
       status: procedure.status === 'PUBLISHED' ? 'active' : 'inactive',
@@ -55,24 +79,6 @@ export function ProceduresDisplay({
     setIsPreviewModalOpen(true)
   }
 
-  const handleDownload = (document: any) => {
-    if (document?.fileUrl) {
-      try {
-        const url = new URL(document.fileUrl, window.location.origin)
-        const downloadLink = window.document.createElement('a')
-        downloadLink.href = document.fileUrl
-        downloadLink.download = document.fileName || `${document.title}.pdf`
-        downloadLink.target = '_blank'
-        downloadLink.rel = 'noopener noreferrer'
-        
-        window.document.body.appendChild(downloadLink)
-        downloadLink.click()
-        window.document.body.removeChild(downloadLink)
-      } catch (error) {
-        console.error('Erro ao baixar arquivo:', error)
-      }
-    }
-  }
 
   const handleCardClick = (e: React.MouseEvent) => {
     // so fecha se clicou no card, nao nos botoes
@@ -163,14 +169,14 @@ export function ProceduresDisplay({
                 </p>
               )}
               
-              <div className="flex flex-wrap gap-2 mb-2">
-                <Badge variant="outline">
+              <div className="flex items-center gap-2 mb-2 flex-nowrap">
+                <Badge variant="outline" className="flex-shrink-0">
                   {procedure.type === 'MANAGEMENT_PROCEDURE' ? 'Procedimento de Gestão' : 'Instrução de Trabalho'}
                 </Badge>
               {procedure.fileName && (
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <File className="h-3 w-3" />
-                  {procedure.fileName}
+                <Badge variant="outline" className="flex items-center gap-1 min-w-0 flex-1">
+                  <File className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{truncateFileName(procedure.fileName)}</span>
                 </Badge>
               )}
               </div>
@@ -182,12 +188,12 @@ export function ProceduresDisplay({
               </div>
             </div>
             
-            <div className="flex flex-wrap gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-wrap gap-2 mt-4 items-center" onClick={(e) => e.stopPropagation()}>
               {procedure.content && (
                 <Button
                   size="sm"
                   onClick={() => openContentModal(procedure)}
-                  className="flex items-center space-x-1"
+                  className="flex items-center gap-1 h-9"
                 >
                   <Eye className="h-4 w-4" />
                   <span>Detalhes</span>
@@ -198,9 +204,10 @@ export function ProceduresDisplay({
                   size="sm" 
                   variant="outline" 
                   onClick={() => handleViewPdf(procedure)}
+                  className="flex items-center gap-1 h-9"
                 >
-                  <FileText className="h-4 w-4 mr-1" />
-                  <span>Visualizar Pdf</span>
+                  <FileText className="h-4 w-4" />
+                  <span>{getFileTypeLabel(procedure.fileName)}</span>
                 </Button>
               )}
             </div>
@@ -216,7 +223,6 @@ export function ProceduresDisplay({
           setSelectedDocument(null)
         }}
         document={selectedDocument}
-        onDownload={handleDownload}
       />
       
       {/* modal de detalhes do procedimento */}

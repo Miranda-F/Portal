@@ -141,9 +141,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       fileSize = null
     }
 
-    // Calculate expiry date if document date is provided
+    // Handle expiryDate
     let expiryDate = existingProcedure.expiryDate
-    if (documentDateStr) {
+    
+    // Se expiryDate foi enviado explicitamente (para marcar como expirado), usa ele
+    const expiryDateStr = formData.get('expiryDate') as string | null
+    if (expiryDateStr) {
+      expiryDate = new Date(expiryDateStr)
+    } else if (documentDateStr) {
+      // Caso contrário, calcula baseado na documentDate
       const documentDate = new Date(documentDateStr)
       expiryDate = new Date(documentDate)
       expiryDate.setFullYear(expiryDate.getFullYear() + 1)
@@ -246,20 +252,48 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const { id } = await params
 
-    // Get procedure to delete associated file
+    // Hard delete - remover permanentemente do banco de dados
     const procedure = await db.procedure.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        sector: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     })
 
-    if (procedure && procedure.fileUrl) {
-      try {
-        const path = join(process.cwd(), 'public', procedure.fileUrl)
-        await unlink(path)
-      } catch (error) {
-        console.error('Error deleting file:', error)
-      }
+    if (!procedure) {
+      return NextResponse.json({ error: 'Procedure not found' }, { status: 404 })
     }
 
+    // Criar histórico da ação antes de deletar
+    try {
+      await createProcedureHistory({
+        procedureId: procedure.id,
+        userId: session.userId,
+        action: 'DELETED',
+        description: 'Documento deletado permanentemente',
+        oldValues: {
+          title: procedure.title,
+          status: procedure.status,
+        },
+        newValues: {},
+      })
+    } catch (historyError) {
+      console.error('Error creating procedure history:', historyError)
+    }
+
+    // Deletar permanentemente
     await db.procedure.delete({
       where: { id },
     })

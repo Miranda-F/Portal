@@ -31,11 +31,7 @@ export class DocumentSecurity {
     // Check file type
     const allowedTypes = [
       'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/plain'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ]
 
     if (!allowedTypes.includes(file.type)) {
@@ -43,7 +39,7 @@ export class DocumentSecurity {
     }
 
     // Check file extension
-    const allowedExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt']
+    const allowedExtensions = ['.pdf', '.docx']
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase()
     
     if (!allowedExtensions.includes(fileExtension)) {

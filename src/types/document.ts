@@ -19,7 +19,7 @@ export interface Document {
   reviewDate: string
   nextReviewDate: string
   responsibleSector: string
-  status: 'active' | 'inactive' | 'pending' | 'expired'
+  status: 'active' | 'inactive' | 'pending' | 'expired' | 'archived'
   type: 'procedure' | 'instruction' | 'form' | 'policy' | 'manual' | 'record' | 'other'
   description: string
   approver: string
@@ -76,6 +76,8 @@ export interface DocumentFormData {
   type: Document['type']
   description: string
   file: File | null
+  status?: Document['status']
+  classification?: string // Para quando status for inativo
 }
 
 export interface VersionFormData {

@@ -50,7 +50,9 @@ export function useDocumentForm({
       responsibleSector: document.responsibleSector,
       type: document.type,
       description: document.description,
-      file: null
+      file: null,
+      status: document.status,
+      classification: document.status === 'inactive' ? document.type : undefined
     })
     setIsEditDocumentModalOpen(true)
   }, [])
