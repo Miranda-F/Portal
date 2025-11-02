@@ -8,13 +8,13 @@ import { useDocumentHistory } from '@/hooks/document/use-document-history'
 import { useDocumentManagement } from '@/hooks/document/use-document-management'
 import { useDocumentForm } from '@/hooks/document/use-document-form'
 import { useDocumentActions } from '@/handlers/document-actions'
-import { DocumentTable } from '@/components/document/document-table'
 import { DocumentModal } from '@/components/document/document-modal'
 import { DeleteDocumentModal } from '@/components/document/delete-document-modal'
 import { DocumentHistoryModal } from '@/components/document/document-history-modal'
 import { DocumentPreviewModal } from '@/components/document/document-preview-modal'
 import { DocumentSecurity } from '@/lib/security/document-security'
 import { Document } from '@/types/document'
+import { ProcedimentosDashboard } from '@/components/procedimentos/procedimentos-dashboard'
 
 export default function ProcedimentosPage() {
   const { user, logout, loading: authLoading } = useAuth()
@@ -28,7 +28,8 @@ export default function ProcedimentosPage() {
     loading: documentsLoading,
     handleDocumentCreated,
     handleDocumentUpdated,
-    handleDocumentDeleted
+    handleDocumentDeleted,
+    fetchDocuments
   } = useDocumentManagement()
   
   // Filters
@@ -121,8 +122,9 @@ export default function ProcedimentosPage() {
   }
   
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <DocumentTable
+    <div className="min-h-screen bg-gray-50 dark:bg-black">
+      <ProcedimentosDashboard
+        allDocuments={documents}
         documents={filteredDocuments}
         loading={documentsLoading}
         searchTerm={searchTerm}
@@ -140,6 +142,9 @@ export default function ProcedimentosPage() {
         onViewDocument={handleViewDocument}
         onViewHistory={handleViewHistory}
         onDownloadDocument={handleDownloadDocument}
+        selectedDocument={selectedDocument}
+        setSelectedDocument={setSelectedDocument}
+        onRefreshDocuments={fetchDocuments}
       />
       
       {/* modal de criacao de documento */}

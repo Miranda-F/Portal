@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GlobalLoading } from "@/components/global-loading";
+import "boxicons/css/boxicons.min.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

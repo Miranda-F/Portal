@@ -24,6 +24,18 @@ export function ContentModal({
     return new Date(dateString).toLocaleDateString('pt-BR')
   }
 
+  const truncateFileName = (fileName: string, maxLength: number = 30) => {
+    if (!fileName || fileName.length <= maxLength) {
+      return fileName
+    }
+    
+    const extension = fileName.split('.').pop()
+    const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'))
+    const truncatedName = nameWithoutExt.substring(0, maxLength)
+    
+    return `${truncatedName}...${extension ? `.${extension}` : ''}`
+  }
+
   const getProcedureTypeLabel = (type: string) => {
     switch (type) {
       case 'MANAGEMENT_PROCEDURE': return 'Procedimento de Gestão'
@@ -32,8 +44,20 @@ export function ContentModal({
     }
   }
 
+  const getFileType = (fileName?: string | null) => {
+    if (!fileName) return 'pdf'
+    const extension = fileName.split('.').pop()?.toLowerCase()
+    return extension === 'docx' || extension === 'doc' ? 'docx' : 'pdf'
+  }
+
+  const getFileTypeLabel = (fileName?: string | null) => {
+    const fileType = getFileType(fileName)
+    return fileType === 'docx' ? 'Visualizar Documento' : 'Visualizar PDF'
+  }
+
   const handleViewPdf = (procedure: Procedure) => {
     // converte procedure para formato de documento
+    const fileType = getFileType(procedure.fileName)
     const document = {
       id: procedure.id,
       title: procedure.title,
@@ -41,7 +65,7 @@ export function ContentModal({
       version: '1.0',
       type: procedure.type === 'MANAGEMENT_PROCEDURE' ? 'management' : 'work_instruction',
       fileUrl: procedure.fileUrl,
-      fileType: procedure.fileName?.split('.').pop() || 'pdf',
+      fileType: fileType,
       fileName: procedure.fileName,
       description: procedure.content,
       status: procedure.status === 'PUBLISHED' ? 'active' : 'inactive',
@@ -55,24 +79,6 @@ export function ContentModal({
     setIsPreviewModalOpen(true)
   }
 
-  const handleDownload = (document: any) => {
-    if (document?.fileUrl) {
-      try {
-        const url = new URL(document.fileUrl, window.location.origin)
-        const downloadLink = window.document.createElement('a')
-        downloadLink.href = document.fileUrl
-        downloadLink.download = document.fileName || `${document.title}.pdf`
-        downloadLink.target = '_blank'
-        downloadLink.rel = 'noopener noreferrer'
-        
-        window.document.body.appendChild(downloadLink)
-        downloadLink.click()
-        window.document.body.removeChild(downloadLink)
-      } catch (error) {
-        console.error('Erro ao baixar arquivo:', error)
-      }
-    }
-  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -119,7 +125,7 @@ export function ContentModal({
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-1">Arquivo</h4>
                   <p className="text-sm">
-                    {selectedProcedure?.fileName || 'N/A'}
+                    {selectedProcedure?.fileName ? truncateFileName(selectedProcedure.fileName) : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -142,19 +148,19 @@ export function ContentModal({
                 </div>
               </div>
 
-              {/* Ação para abrir PDF */}
+              {/* Ação para abrir arquivo */}
               {selectedProcedure?.fileUrl && (
                 <div className="pt-4 border-t">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-4">
-                      O PDF está disponível para visualização. Clique no botão abaixo para visualizá-lo.
+                      O documento está disponível para visualização. Clique no botão abaixo para visualizá-lo.
                     </p>
                     <Button
                       onClick={() => handleViewPdf(selectedProcedure)}
                       className="flex items-center gap-2 mx-auto"
                     >
                       <FileText className="h-4 w-4" />
-                      Visualizar PDF
+                      {getFileTypeLabel(selectedProcedure.fileName)}
                     </Button>
                   </div>
                 </div>
@@ -172,7 +178,6 @@ export function ContentModal({
           setSelectedDocument(null)
         }}
         document={selectedDocument}
-        onDownload={handleDownload}
       />
     </Dialog>
   )

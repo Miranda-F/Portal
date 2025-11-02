@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Document, Sector } from '@/types/document'
-import { mockDocuments } from '@/constants/document-mock'
 
 interface UseDocumentsProps {
   initialDocuments?: Document[]
@@ -22,7 +21,22 @@ export function useDocuments({ initialDocuments = [] }: UseDocumentsProps = {}) 
         const documentsData = await response.json()
         
         // Transform API data to match the Document interface
-        const transformedDocuments = documentsData.map((doc: any) => ({
+        const transformedDocuments = documentsData.map((doc: any) => {
+          const isExpired = doc.expiryDate ? new Date(doc.expiryDate) < new Date() : false
+          // Mapear status do banco para status da interface
+          // IMPORTANTE: expirado tem prioridade sobre qualquer outro status
+          let status: any = 'inactive' // padrão
+          if (isExpired) {
+            status = 'expired'
+          } else if (doc.status === 'PUBLISHED') {
+            status = 'active'
+          } else if (doc.status === 'DRAFT') {
+            status = 'pending'
+          } else if (doc.status === 'ARCHIVED') {
+            // ARCHIVED do backend é tratado como inactive no frontend
+            status = 'inactive'
+          }
+          return ({
           id: doc.id,
           code: doc.title.substring(0, 10) || "DOC-" + doc.id.substring(0, 4),
           title: doc.title,
@@ -31,7 +45,7 @@ export function useDocuments({ initialDocuments = [] }: UseDocumentsProps = {}) 
           reviewDate: doc.documentDate ? new Date(doc.documentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           nextReviewDate: doc.expiryDate ? new Date(doc.expiryDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           responsibleSector: doc.sector?.name || "",
-          status: doc.status === 'PUBLISHED' ? 'active' : doc.status === 'DRAFT' ? 'pending' : 'inactive',
+          status,
           type: doc.type === 'MANAGEMENT_PROCEDURE' ? 'procedure' : 'instruction',
           description: doc.content || "",
           approver: "",
@@ -42,7 +56,7 @@ export function useDocuments({ initialDocuments = [] }: UseDocumentsProps = {}) 
           fileSize: doc.fileSize,
           fileType: doc.fileName?.split('.').pop() || "",
           accessLevel: "public"
-        }))
+        })})
         
         setDocuments(transformedDocuments)
       } else {
@@ -51,8 +65,8 @@ export function useDocuments({ initialDocuments = [] }: UseDocumentsProps = {}) 
     } catch (err) {
       console.error('Error fetching documents:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
-      // Fallback to mock data if API fails
-      setDocuments(mockDocuments)
+      // Sem fallback de mocks — deixar vazio em caso de erro
+      setDocuments([])
     } finally {
       setLoading(false)
     }

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         
       }
       
-      // Now try to get procedures with proper includes
+      // Buscar todos os procedures (não há mais soft delete)
       const procedures = await db.procedure.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
@@ -68,11 +68,11 @@ export async function GET(request: NextRequest) {
       })
 
       return NextResponse.json(procedures)
-    } catch (error) {
-      console.error('Database operation failed:', error)
-      
-      // If all else fails, try to get procedures without includes first
-      try {
+      } catch (error: any) {
+        console.error('Database operation failed:', error)
+        
+        // If all else fails, try to get procedures without includes first
+        try {
         const simpleProcedures = await db.$queryRaw`
           SELECT 
             p.id, p.title, p.content, p.type, p.status, 
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
         
         
         // Transform the result to match the expected format
-        const formattedProcedures = Array.isArray(simpleProcedures) ? simpleProcedures.map(p => ({
+        const formattedProcedures = Array.isArray(simpleProcedures) ? simpleProcedures.map((p: any) => ({
           id: p.id,
           title: p.title,
           content: p.content,
@@ -150,9 +150,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title and type are required' }, { status: 400 })
     }
 
-    let fileUrl = null
-    let fileName = null
-    let fileSize = null
+    let fileUrl: string | null = null
+    let fileName: string | null = null
+    let fileSize: number | null = null
 
     // Handle file upload
     if (file && file.size > 0) {
@@ -172,17 +172,17 @@ export async function POST(request: NextRequest) {
         fileUrl = `/uploads/procedures/${filename}`
         fileName = originalName
         fileSize = file.size
-      } catch (fileError) {
+      } catch (fileError: any) {
         console.error('Error saving file:', fileError)
         return NextResponse.json({ 
           error: 'Error saving file', 
-          details: fileError.message 
+          details: fileError?.message || 'Unknown error' 
         }, { status: 500 })
       }
     }
 
     // Calculate expiry date if document date is provided
-    let expiryDate = null
+    let expiryDate: Date | null = null
     if (documentDateStr) {
       const documentDate = new Date(documentDateStr)
       expiryDate = new Date(documentDate)
@@ -200,11 +200,9 @@ export async function POST(request: NextRequest) {
     if (sectorId && sectorId !== "none") createData.sectorId = sectorId
     if (documentDateStr) createData.documentDate = new Date(documentDateStr)
     if (expiryDate) createData.expiryDate = expiryDate
-    if (fileUrl) {
-      createData.fileUrl = fileUrl
-      createData.fileName = fileName
-      createData.fileSize = fileSize
-    }
+    if (fileUrl) createData.fileUrl = fileUrl
+    if (fileName) createData.fileName = fileName
+    if (fileSize !== null) createData.fileSize = fileSize
 
     try {
       const procedure = await db.procedure.create({
@@ -252,7 +250,7 @@ export async function POST(request: NextRequest) {
       console.error('Error creating procedure in database:', dbError)
       return NextResponse.json({ 
         error: 'Error creating procedure in database', 
-        details: dbError.message 
+        details: (dbError as any)?.message || 'Unknown error' 
       }, { status: 500 })
     }
   } catch (error) {

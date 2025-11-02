@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { FileUp, X } from "lucide-react"
 import { DocumentFormData, Sector } from '@/types/document'
-import { documentTypes } from '@/constants/document'
+import { documentTypes, statusOptions } from '@/constants/document'
 
 interface DocumentFormProps {
   formData: DocumentFormData
@@ -27,6 +27,9 @@ export function DocumentForm({ formData, setFormData, sectors, isEditing = false
   const removeFile = () => {
     setFormData({ ...formData, file: null })
   }
+
+  // Se está editando e status for inativo, mostra campo de classificação
+  const showClassificationField = isEditing && formData.status === 'inactive'
 
   return (
     <div className="grid gap-4 max-h-[60vh] overflow-y-auto">
@@ -78,6 +81,7 @@ export function DocumentForm({ formData, setFormData, sectors, isEditing = false
           <Select 
             value={formData.type} 
             onValueChange={(value) => setFormData({ ...formData, type: value as DocumentFormData['type'] })}
+            disabled={showClassificationField}
           >
             <SelectTrigger>
               <SelectValue />
@@ -111,6 +115,61 @@ export function DocumentForm({ formData, setFormData, sectors, isEditing = false
         </div>
       </div>
       
+      {isEditing && (
+        <div className="space-y-2">
+          <Label htmlFor="edit-status">Status *</Label>
+          <Select 
+            value={formData.status || 'active'} 
+              onValueChange={(value) => {
+                const newStatus = value as DocumentFormData['status']
+                setFormData({ 
+                  ...formData, 
+                  status: newStatus,
+                  // Se mudou para inativo, já define o tipo como "other" e a classificação
+                  // Se mudou de inativo para outro status, mantém o tipo atual
+                  type: newStatus === 'inactive' ? 'other' : formData.type,
+                  classification: newStatus === 'inactive' ? (formData.classification || 'other') : formData.classification
+                })
+              }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map(status => (
+                <SelectItem key={status.value} value={status.value}>
+                  {status.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      
+      {showClassificationField && (
+        <div className="space-y-2">
+          <Label htmlFor="edit-classification">Classificação *</Label>
+          <Select 
+            value={formData.classification || 'other'} 
+            onValueChange={(value) => setFormData({ ...formData, classification: value, type: 'other' })}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione a classificação" />
+            </SelectTrigger>
+            <SelectContent>
+              {documentTypes.map(type => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Ao definir status como inativo, o documento será movido para a classificação "Outro".
+          </p>
+        </div>
+      )}
+      
       <div className="space-y-2">
         <Label htmlFor={isEditing ? "edit-description" : "description"}>Descrição</Label>
         <Textarea
@@ -130,7 +189,7 @@ export function DocumentForm({ formData, setFormData, sectors, isEditing = false
             type="file"
             onChange={handleFileChange}
             className="hidden"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+            accept=".pdf,.docx"
           />
           <Button
             type="button"
@@ -158,7 +217,7 @@ export function DocumentForm({ formData, setFormData, sectors, isEditing = false
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Formatos aceitos: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT. Tamanho máximo: 10MB
+          Formatos aceitos: PDF e DOCX. Tamanho máximo: 10MB
         </p>
       </div>
     </div>
