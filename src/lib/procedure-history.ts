@@ -92,14 +92,23 @@ export function generateProcedureUpdateDescription(
     changes.push('setor')
   }
 
-  // Check for document date changes
-  if (oldValues.documentDate !== newValues.documentDate) {
+  // Check for document date changes (normalize dates for comparison)
+  const oldDocDate = oldValues.documentDate ? (typeof oldValues.documentDate === 'string' ? oldValues.documentDate : new Date(oldValues.documentDate).toISOString()) : null
+  const newDocDate = newValues.documentDate ? (typeof newValues.documentDate === 'string' ? newValues.documentDate : new Date(newValues.documentDate).toISOString()) : null
+  if (oldDocDate !== newDocDate) {
     changes.push('data do documento')
   }
 
   // Check for file changes
   if (oldValues.fileUrl !== newValues.fileUrl) {
     changes.push('arquivo')
+  }
+
+  // Check for expiry date changes (normalize dates for comparison)
+  const oldExpiryDate = oldValues.expiryDate ? (typeof oldValues.expiryDate === 'string' ? oldValues.expiryDate : new Date(oldValues.expiryDate).toISOString()) : null
+  const newExpiryDate = newValues.expiryDate ? (typeof newValues.expiryDate === 'string' ? newValues.expiryDate : new Date(newValues.expiryDate).toISOString()) : null
+  if (oldExpiryDate !== newExpiryDate) {
+    changes.push('data de vencimento')
   }
 
   if (changes.length === 0) {

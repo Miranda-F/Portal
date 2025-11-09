@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
         content: true,
         type: true,
         status: true,
+        expiryDate: true, // Incluir expiryDate para filtro no frontend
         fileUrl: true,
         fileName: true,
         fileSize: true,

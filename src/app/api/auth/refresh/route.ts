@@ -56,16 +56,34 @@ export async function POST(request: NextRequest) {
       userAgent: getUserAgent(request)
     })
     
-    // Set new cookies
+    // Set new cookies usando a API do Next.js
     const response = NextResponse.json(
       { message: 'Token atualizado com sucesso' },
       { status: 200 }
     )
     
-    response.headers.set('Set-Cookie', [
-      `access_token=${newAccessToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=900`, // 15 minutos
-      `refresh_token=${newRefreshToken}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800` // 7 dias
-    ].join(', '))
+    // Determinar se estamos em produção
+    const isProduction = process.env.NODE_ENV === 'production'
+    
+    // Set access token cookie (15 minutos)
+    response.cookies.set('access_token', newAccessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 15 * 60, // 15 minutos em segundos
+      ...(isProduction && process.env.DOMAIN ? { domain: process.env.DOMAIN } : {})
+    })
+    
+    // Set refresh token cookie (7 dias)
+    response.cookies.set('refresh_token', newRefreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60, // 7 dias em segundos
+      ...(isProduction && process.env.DOMAIN ? { domain: process.env.DOMAIN } : {})
+    })
     
     return response
   } catch (error) {

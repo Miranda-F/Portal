@@ -6,15 +6,15 @@ import { CheckCircle, XCircle, Clock, AlertTriangle, FileText } from 'lucide-rea
 export const getStatusIcon = (status: Document['status']) => {
   switch (status) {
     case 'active':
-      return <CheckCircle className="h-4 w-4 text-green-500" />
+      return <CheckCircle className="h-5 w-5 text-green-500" />
     case 'inactive':
-      return <XCircle className="h-4 w-4 text-gray-500" />
+      return <XCircle className="h-5 w-5 text-gray-500" />
     case 'pending':
-      return <Clock className="h-4 w-4 text-yellow-500" />
+      return <Clock className="h-5 w-5 text-yellow-500" />
     case 'expired':
-      return <AlertTriangle className="h-4 w-4 text-red-500" />
+      return <AlertTriangle className="h-5 w-5 text-red-500" />
     default:
-      return <FileText className="h-4 w-4" />
+      return <FileText className="h-5 w-5" />
   }
 }
 
@@ -132,10 +132,72 @@ export const truncateFileName = (fileName: string, maxLength: number = 30): stri
   
   const extension = fileName.substring(lastDot)
   const nameWithoutExt = fileName.substring(0, lastDot)
-  const availableLength = maxLength - extension.length - 3 // 3 para "..."
+  const availableLength = maxLength - extension.length - 3 
   
   if (nameWithoutExt.length <= availableLength) return fileName
   
   return nameWithoutExt.substring(0, availableLength) + '...' + extension
+}
+
+export const getDirectoryFromType = (type: Document['type']): string => {
+  const directoryMap: Record<Document['type'], string> = {
+    'procedure': 'Procedimentos',
+    'instruction': 'Instruções de Trabalho',
+    'form': 'Formulários',
+    'policy': 'Políticas',
+    'manual': 'Manuais',
+    'record': 'Registros',
+    'other': 'Outros'
+  }
+  return directoryMap[type] || 'Outros'
+}
+
+export const getExpirationStatus = (expiryDate: string | null): { 
+  status: 'valid' | 'warning' | 'expired', 
+  daysUntilExpiry: number,
+  bgColor: string 
+} => {
+  if (!expiryDate) {
+    return { status: 'valid', daysUntilExpiry: Infinity, bgColor: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' }
+  }
+  // Parse YYYY-MM-DD as local date to avoid timezone shifts
+  let expiry: Date
+  if (/^\d{4}-\d{2}-\d{2}/.test(expiryDate)) {
+    const [y, m, d] = expiryDate.split('T')[0].split('-').map(Number)
+    expiry = new Date(y, (m || 1) - 1, d || 1)
+  } else {
+    expiry = new Date(expiryDate)
+  }
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  expiry.setHours(0, 0, 0, 0)
+  
+  const diffTime = expiry.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  if (diffDays < 0) {
+    return { status: 'expired', daysUntilExpiry: diffDays, bgColor: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' }
+  } else if (diffDays <= 30) {
+    return { status: 'warning', daysUntilExpiry: diffDays, bgColor: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' }
+  } else {
+    return { status: 'valid', daysUntilExpiry: diffDays, bgColor: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' }
+  }
+}
+
+export const formatDate = (dateString: string): string => {
+  if (!dateString) return '—'
+  // If ISO date like YYYY-MM-DD, format by string parts to avoid TZ issues
+  if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+    const [y, m, d] = dateString.split('T')[0].split('-')
+    return `${d}/${m}/${y}`
+  }
+  const date = new Date(dateString)
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+export const truncateText = (text: string | null | undefined, maxLength: number = 50): string => {
+  if (!text) return '—'
+  if (text.length <= maxLength) return text
+  return text.substring(0, maxLength) + '...'
 }
 

@@ -292,6 +292,7 @@ const getErrorMessage = (errorType: ErrorType, originalMessage: string): string 
 
 export function useAuth(): UseAuthReturn {
   const [localError, setLocalError] = useState<string | null>(null)
+  const [isChecking, setIsChecking] = useState(false)
   
   // Use Zustand store para gerenciamento de estado global
   const {
@@ -321,6 +322,11 @@ export function useAuth(): UseAuthReturn {
    * 3. Faz chamada à API (apenas se necessário)
    */
   const checkAuth = useCallback(async (forceRefresh = false) => {
+    // Evitar chamadas duplicadas simultâneas
+    if (isChecking && !forceRefresh) {
+      return
+    }
+
     // Check localStorage cache primeiro (caminho mais rápido)
     if (!forceRefresh) {
       const localCache = getAuthCache()
@@ -340,6 +346,7 @@ export function useAuth(): UseAuthReturn {
       return
     }
 
+    setIsChecking(true)
     setLoading(true)
     setLocalError(null)
 
@@ -351,7 +358,7 @@ export function useAuth(): UseAuthReturn {
             'Pragma': 'no-cache',
             'Expires': '0',
           }
-        }, 5000)
+        }, 10000) // Aumentado para 10 segundos
 
         if (response.ok) {
           const userData = await response.json()
@@ -374,8 +381,8 @@ export function useAuth(): UseAuthReturn {
       setError(userMessage)
       updateAuthState(null, setUser, setLastAuthCheck, true) // Limpa cache em erro
       
-      // Toast apenas para erros que não são de autenticação normal
-      if (errorType !== ErrorType.AUTHENTICATION) {
+      // Toast apenas para erros que não são de autenticação normal ou timeout
+      if (errorType !== ErrorType.AUTHENTICATION && errorType !== ErrorType.TIMEOUT) {
         toast({
           title: "Erro de autenticação",
           description: userMessage,
@@ -385,15 +392,17 @@ export function useAuth(): UseAuthReturn {
     } finally {
       setLoading(false)
       setAuthChecked(true)
+      setIsChecking(false)
     }
-  }, [lastAuthCheck, user, setUser, setLoading, setAuthChecked, setError, setLastAuthCheck])
+  }, [lastAuthCheck, user, setUser, setLoading, setAuthChecked, setError, setLastAuthCheck, isChecking])
 
-  // Initialize auth check on mount
+  // Initialize auth check on mount - apenas uma vez
   useEffect(() => {
-    if (!authChecked) {
+    if (!authChecked && !isChecking) {
       checkAuth()
     }
-  }, [authChecked, checkAuth])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Executar apenas uma vez no mount
 
   /**
    * Login com tratamento de erros aprimorado e gerenciamento de cache unificado
@@ -463,7 +472,7 @@ export function useAuth(): UseAuthReturn {
     try {
       await fetchWithTimeout('/api/auth/logout', {
         method: 'POST'
-      }, 5000)
+      }, 10000) // Aumentado para 10 segundos
       
       clearStoreAuth()
       clearAuthCache()
@@ -494,6 +503,7 @@ export function useAuth(): UseAuthReturn {
         sessionStorage.removeItem('userRole')
       }
       
+      // Não mostrar toast em caso de timeout - apenas limpar estado local silenciosamente
       if (errorType !== ErrorType.TIMEOUT && errorType !== ErrorType.NETWORK) {
         toast({
           title: "Aviso de logout",
@@ -514,26 +524,31 @@ export function useAuth(): UseAuthReturn {
     try {
       const response = await fetchWithTimeout('/api/auth/refresh', {
         method: 'POST'
-      }, 5000)
+      }, 10000) // Aumentado para 10 segundos
 
       if (response.ok) {
         // Refresh successful, atualizar dados do usuário
         await checkAuth(true)
-        toast({
-          title: "Sessão renovada",
-          description: "Sua sessão foi renovada com sucesso."
-        })
+        // Não mostrar toast para refresh automático silencioso
       } else {
-        // Refresh failed, fazer logout
-        await logout()
+        // Refresh failed, fazer logout apenas se for erro de autenticação (401, 403)
+        if (response.status === 401 || response.status === 403) {
+          await logout()
+        }
       }
     } catch (error) {
       console.error('Erro ao renovar sessão:', error)
-      await logout()
+      // Não fazer logout em caso de timeout ou erro de rede
+      // Apenas logar o erro e deixar o usuário continuar usando a sessão atual
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido'
+      if (!errorMessage.includes('Timeout')) {
+        // Apenas fazer logout se não for timeout
+        await logout()
+      }
     }
   }, [checkAuth, logout])
 
-  // Auto-refresh token a cada 14 minutos (antes de expirar)
+  // Auto-refresh token a cada 12 minutos (antes de expirar aos 15 minutos)
   useEffect(() => {
     if (!user) return
 
@@ -543,9 +558,10 @@ export function useAuth(): UseAuthReturn {
         await refreshAuth()
       } catch (error) {
         console.error('Auto-refresh failed:', error)
-        // Se falhar, o refreshAuth já faz logout automaticamente
+        // Não fazer nada em caso de erro - deixar o usuário continuar usando a sessão
+        // O refreshAuth já trata os erros apropriadamente
       }
-    }, 14 * 60 * 1000) // 14 minutos (antes dos 15 minutos de expiração)
+    }, 12 * 60 * 1000) // 12 minutos (antes dos 15 minutos de expiração)
 
     return () => clearInterval(interval)
   }, [user, refreshAuth])
