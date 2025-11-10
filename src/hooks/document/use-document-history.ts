@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { DocumentVersion, DocumentApproval, DocumentAccess } from '@/types/document'
-import { mockVersions, mockApprovals, mockAccess } from '@/constants/document-mock'
 
 export function useDocumentHistory(documentId: string) {
   const [versions, setVersions] = useState<DocumentVersion[]>([])
@@ -14,18 +13,25 @@ export function useDocumentHistory(documentId: string) {
       setLoading(true)
       setError(null)
       
-      // In a real implementation, these would be API calls
-      // For now, we'll filter mock data by documentId
-      const filteredVersions = mockVersions.filter(v => v.documentId === documentId)
-      const filteredApprovals = mockApprovals.filter(a => a.documentId === documentId)
-      const filteredAccess = mockAccess.filter(a => a.documentId === documentId)
-      
-      setVersions(filteredVersions)
-      setApprovals(filteredApprovals)
-      setAccess(filteredAccess)
+      const response = await fetch(`/api/admin/procedures/${documentId}/history`)
+      if (response.ok) {
+        const data = await response.json()
+        // Tentar mapear estruturas comuns; fallback para arrays vazios
+        setVersions((data.versions || []) as DocumentVersion[])
+        setApprovals((data.approvals || []) as DocumentApproval[])
+        setAccess((data.access || []) as DocumentAccess[])
+      } else {
+        setVersions([])
+        setApprovals([])
+        setAccess([])
+        throw new Error('Failed to fetch document history')
+      }
     } catch (err) {
       console.error('Error fetching document history:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
+      setVersions([])
+      setApprovals([])
+      setAccess([])
     } finally {
       setLoading(false)
     }

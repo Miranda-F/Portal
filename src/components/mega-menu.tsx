@@ -78,21 +78,21 @@ const megaMenuItems: MegaMenuItem[] = [
         title: "Procedimentos",
         description: "Documentos e processos da qualidade",
         icon: <FileText className="h-4 w-4" />,
-        href: "/usuario#procedimentos"
+        href: "/procedimentos"
       },
       {
         id: "vagas",
         title: "Vagas",
         description: "Oportunidades de trabalho",
         icon: <Briefcase className="h-4 w-4" />,
-        href: "/usuario#vagas"
+        href: "/rh?tab=vagas"
       },
       {
         id: "eventos",
         title: "Eventos",
         description: "Eventos corporativos e treinamentos",
         icon: <Calendar className="h-4 w-4" />,
-        href: "/usuario#eventos"
+        href: "/eventos"
       },
       {
         id: "rh",

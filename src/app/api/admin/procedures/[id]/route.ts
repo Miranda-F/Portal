@@ -4,7 +4,32 @@ import { db } from '@/lib/db'
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
 import { unlink } from 'fs/promises'
-import { createProcedureHistory, generateProcedureUpdateDescription } from '@/lib/procedure-history'
+import { createProcedureHistory, generateProcedureUpdateDescription, getProcedureHistory } from '@/lib/procedure-history'
+import { parseLocalDate } from '@/lib/date-utils'
+
+// Função auxiliar para calcular a versão atual baseada no histórico
+function calculateCurrentVersion(history: any[]): string {
+  const filteredHistory = history.filter((h: any) => ['CREATED', 'UPDATED', 'RESCHEDULED', 'DELETED'].includes(h.action))
+  const reversedHistory = [...filteredHistory].reverse()
+  let currentVersion = '1.0'
+  
+  reversedHistory.forEach((h: any) => {
+    if (h.action === 'CREATED') {
+      currentVersion = '1.0'
+    } else if (h.action === 'UPDATED') {
+      const [major, minor] = currentVersion.split('.').map(Number)
+      const newMinor = minor + 1
+      if (newMinor >= 10) {
+        currentVersion = `${major + 1}.0`
+      } else {
+        currentVersion = `${major}.${newMinor}`
+      }
+    }
+    // RESCHEDULED e DELETED mantêm a versão atual
+  })
+  
+  return currentVersion
+}
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -132,7 +157,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         try {
           const oldPath = join(process.cwd(), 'public', existingProcedure.fileUrl)
           await unlink(oldPath)
-          console.log('File deleted:', existingProcedure.fileUrl)
         } catch (error) {
           console.error('Error deleting file:', error)
         }
@@ -142,29 +166,22 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       fileSize = null
     }
 
-    // Calculate expiry date if document date is provided
-    let expiryDate = existingProcedure.expiryDate
-    if (documentDateStr) {
-      const documentDate = new Date(documentDateStr)
-      expiryDate = new Date(documentDate)
-      expiryDate.setFullYear(expiryDate.getFullYear() + 1)
-    }
+    // Não permitir alterar expiryDate via rota de edição; usar rota /reschedule
+    // expiryDate não é alterado aqui
 
     const updateData: any = {}
     if (title) updateData.title = title
     if (content !== null) updateData.content = content || null
     if (type) updateData.type = type
     if (status) updateData.status = status
-    console.log('Received sectorId:', sectorId, 'type:', typeof sectorId)
-    console.log('Update data before sectorId check:', updateData)
     
     if (sectorId !== null) {
       updateData.sectorId = sectorId || null
-      console.log('Setting sectorId to:', updateData.sectorId)
     }
-    console.log('Final update data:', updateData)
-    if (documentDateStr) updateData.documentDate = new Date(documentDateStr)
-    if (expiryDate) updateData.expiryDate = expiryDate
+    // Não permitir alterar a data de criação (documentDate) na edição
+    // A data de criação permanece sempre a mesma do documento original
+    // if (documentDateStr) updateData.documentDate = new Date(documentDateStr)
+    // expiryDate não é alterado aqui
     if (fileUrl !== existingProcedure.fileUrl) {
       updateData.fileUrl = fileUrl
       updateData.fileName = fileName
@@ -199,7 +216,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         type: existingProcedure.type,
         status: existingProcedure.status,
         sectorId: existingProcedure.sectorId,
-        documentDate: existingProcedure.documentDate,
+        documentDate: existingProcedure.documentDate ? existingProcedure.documentDate.toISOString() : null,
+        expiryDate: existingProcedure.expiryDate ? existingProcedure.expiryDate.toISOString() : null,
         fileUrl: existingProcedure.fileUrl,
       }
 
@@ -209,7 +227,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         type: procedure.type,
         status: procedure.status,
         sectorId: procedure.sectorId,
-        documentDate: procedure.documentDate,
+        documentDate: procedure.documentDate ? procedure.documentDate.toISOString() : null,
+        expiryDate: procedure.expiryDate ? procedure.expiryDate.toISOString() : null,
         fileUrl: procedure.fileUrl,
       }
 
@@ -223,13 +242,37 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         oldValues,
         newValues,
       })
-      console.log('Procedure history updated successfully')
+
+      // Logar também em "acesso" como EDITED
+      try {
+        await createProcedureHistory({
+          procedureId: procedure.id,
+          userId: session.userId,
+          action: 'EDITED',
+          description: 'Documento editado'
+        })
+      } catch (e) {
+        console.warn('Failed to create access EDITED history:', e)
+      }
     } catch (historyError) {
       console.error('Error creating procedure history:', historyError)
       // Don't fail the whole operation if history creation fails
     }
 
-    return NextResponse.json(procedure)
+    // Calcular versão atual baseada no histórico
+    try {
+      const updatedHistory = await getProcedureHistory(procedure.id)
+      const currentVersion = calculateCurrentVersion(updatedHistory)
+      // Adicionar versão ao objeto de resposta
+      return NextResponse.json({
+        ...procedure,
+        version: currentVersion
+      })
+    } catch (versionError) {
+      console.warn('Error calculating version:', versionError)
+      // Se falhar, retornar sem versão (frontend usará 1.0 como fallback)
+      return NextResponse.json(procedure)
+    }
   } catch (error) {
     console.error('Error updating procedure:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -252,20 +295,48 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const { id } = await params
 
-    // Get procedure to delete associated file
+    // Hard delete - remover permanentemente do banco de dados
     const procedure = await db.procedure.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        sector: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     })
 
-    if (procedure && procedure.fileUrl) {
-      try {
-        const path = join(process.cwd(), 'public', procedure.fileUrl)
-        await unlink(path)
-      } catch (error) {
-        console.error('Error deleting file:', error)
-      }
+    if (!procedure) {
+      return NextResponse.json({ error: 'Procedure not found' }, { status: 404 })
     }
 
+    // Criar histórico da ação antes de deletar
+    try {
+      await createProcedureHistory({
+        procedureId: procedure.id,
+        userId: session.userId,
+        action: 'DELETED',
+        description: 'Documento deletado permanentemente',
+        oldValues: {
+          title: procedure.title,
+          status: procedure.status,
+        },
+        newValues: {},
+      })
+    } catch (historyError) {
+      console.error('Error creating procedure history:', historyError)
+    }
+
+    // Deletar permanentemente
     await db.procedure.delete({
       where: { id },
     })

@@ -136,6 +136,358 @@ export default function AuditLogsSection({ activeTab }: AuditLogsSectionProps) {
     return labels[actionType] || actionType
   }
 
+  // Função para mapear ações para rotas específicas
+  const getRouteFromAction = (log: AuditLog): string => {
+    const { action, actionType, entityType, entityId } = log
+    
+    
+    // === AUTENTICAÇÃO ===
+    if (action.includes('LOGIN') || actionType === 'LOGIN') {
+      return 'POST /api/auth/login'
+    }
+    if (action.includes('LOGOUT') || actionType === 'LOGOUT') {
+      return 'POST /api/auth/logout'
+    }
+    if (action.includes('REFRESH')) {
+      return 'POST /api/auth/refresh'
+    }
+    if (action.includes('FORGOT_PASSWORD') || actionType === 'PASSWORD_CHANGE') {
+      return 'POST /api/auth/forgot-password'
+    }
+    if (action.includes('ME')) {
+      return 'GET /api/auth/me'
+    }
+    
+    // === USUÁRIOS ===
+    if ((action.includes('CREATE') || actionType === 'CREATE') && entityType === 'USER') {
+      return 'POST /api/rh/employees'
+    }
+    if ((action.includes('UPDATE') || actionType === 'UPDATE') && entityType === 'USER') {
+      return `PUT /api/admin/users/${entityId}`
+    }
+    if ((action.includes('DELETE') || actionType === 'DELETE') && entityType === 'USER') {
+      return `DELETE /api/admin/users/${entityId}`
+    }
+    if ((action.includes('APPROVE') || actionType === 'APPROVE') && entityType === 'USER') {
+      return `PUT /api/admin/users/${entityId}/approve`
+    }
+    if (action.includes('GET') && entityType === 'USER') {
+      return `GET /api/admin/users/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'USER') {
+      return 'GET /api/admin/users'
+    }
+    
+    // === FUNCIONÁRIOS RH ===
+    if (action.includes('CREATE') && entityType === 'EMPLOYEE') {
+      return 'POST /api/rh/employees'
+    }
+    if (action.includes('UPDATE') && entityType === 'EMPLOYEE') {
+      return `PUT /api/rh/employees/${entityId}`
+    }
+    if (action.includes('DELETE') && entityType === 'EMPLOYEE') {
+      return `DELETE /api/rh/employees/${entityId}`
+    }
+    if (action.includes('GET') && entityType === 'EMPLOYEE') {
+      return `GET /api/rh/employees/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'EMPLOYEE') {
+      return 'GET /api/rh/employees'
+    }
+    
+    // === SETORES ===
+    if (action.includes('CREATE') && entityType === 'SECTOR') {
+      return 'POST /api/admin/sectors'
+    }
+    if (action.includes('UPDATE') && entityType === 'SECTOR') {
+      return `PUT /api/admin/sectors/${entityId}`
+    }
+    if (action.includes('DELETE') && entityType === 'SECTOR') {
+      return `DELETE /api/admin/sectors/${entityId}`
+    }
+    if (action.includes('TOGGLE') && entityType === 'SECTOR') {
+      return `PUT /api/admin/sectors/${entityId}/toggle`
+    }
+    if (action.includes('GET') && entityType === 'SECTOR') {
+      return `GET /api/admin/sectors/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'SECTOR') {
+      return 'GET /api/admin/sectors'
+    }
+    
+    // === GRUPOS ===
+    if (action.includes('CREATE') && entityType === 'GROUP') {
+      return 'POST /api/admin/groups'
+    }
+    if (action.includes('UPDATE') && entityType === 'GROUP') {
+      return `PUT /api/admin/groups/${entityId}`
+    }
+    if (action.includes('DELETE') && entityType === 'GROUP') {
+      return `DELETE /api/admin/groups/${entityId}`
+    }
+    if (action.includes('USERS') && entityType === 'GROUP') {
+      return `GET /api/admin/groups/${entityId}/users`
+    }
+    if (action.includes('GET') && entityType === 'GROUP') {
+      return `GET /api/admin/groups/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'GROUP') {
+      return 'GET /api/admin/groups'
+    }
+    
+    // === EVENTOS ===
+    if (action.includes('CREATE') && entityType === 'EVENT') {
+      return 'POST /api/admin/events'
+    }
+    if (action.includes('UPDATE') && entityType === 'EVENT') {
+      return `PUT /api/admin/events/${entityId}`
+    }
+    if (action.includes('DELETE') && entityType === 'EVENT') {
+      return `DELETE /api/admin/events/${entityId}`
+    }
+    if (action.includes('TOGGLE') && entityType === 'EVENT') {
+      return `PUT /api/admin/events/${entityId}/toggle`
+    }
+    if (action.includes('GET') && entityType === 'EVENT') {
+      return `GET /api/admin/events/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'EVENT') {
+      return 'GET /api/admin/events'
+    }
+    if (action.includes('REGISTER') && entityType === 'EVENT') {
+      return 'POST /api/user/register-event'
+    }
+    if (action.includes('UNREGISTER') && entityType === 'EVENT') {
+      return 'POST /api/user/unregister-event'
+    }
+    
+    // === VAGAS DE EMPREGO ===
+    if (action.includes('CREATE') && entityType === 'JOB') {
+      return 'POST /api/admin/jobs'
+    }
+    if (action.includes('UPDATE') && entityType === 'JOB') {
+      return `PUT /api/admin/jobs/${entityId}`
+    }
+    if (action.includes('DELETE') && entityType === 'JOB') {
+      return `DELETE /api/admin/jobs/${entityId}`
+    }
+    if (action.includes('TOGGLE') && entityType === 'JOB') {
+      return `PUT /api/admin/jobs/${entityId}/toggle`
+    }
+    if (action.includes('FILL') && entityType === 'JOB') {
+      return `PUT /api/admin/jobs/${entityId}/fill`
+    }
+    if (action.includes('GET') && entityType === 'JOB') {
+      return `GET /api/admin/jobs/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'JOB') {
+      return 'GET /api/admin/jobs'
+    }
+    if (action.includes('REGISTER') && entityType === 'JOB') {
+      return 'POST /api/user/register-job'
+    }
+    if (action.includes('UNREGISTER') && entityType === 'JOB') {
+      return 'POST /api/user/unregister-job'
+    }
+    
+    // === PROCEDIMENTOS ===
+    if (action.includes('CREATE') && entityType === 'PROCEDURE') {
+      return 'POST /api/admin/procedures'
+    }
+    if (action.includes('UPDATE') && entityType === 'PROCEDURE') {
+      return `PUT /api/admin/procedures/${entityId}`
+    }
+    if (action.includes('DELETE') && entityType === 'PROCEDURE') {
+      return `DELETE /api/admin/procedures/${entityId}`
+    }
+    if (action.includes('HISTORY') && entityType === 'PROCEDURE') {
+      return `GET /api/admin/procedures/${entityId}/history`
+    }
+    if (action.includes('MIGRATE') && entityType === 'PROCEDURE') {
+      return 'POST /api/admin/procedures/migrate'
+    }
+    if (action.includes('GET') && entityType === 'PROCEDURE') {
+      return `GET /api/admin/procedures/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'PROCEDURE') {
+      return 'GET /api/admin/procedures'
+    }
+    
+    // === TREINAMENTOS ===
+    if (action.includes('CREATE') && entityType === 'TRAINING') {
+      return 'POST /api/admin/trainings'
+    }
+    if (action.includes('UPDATE') && entityType === 'TRAINING') {
+      return `PUT /api/admin/trainings/${entityId}`
+    }
+    if (action.includes('DELETE') && entityType === 'TRAINING') {
+      return `DELETE /api/admin/trainings/${entityId}`
+    }
+    if (action.includes('GET') && entityType === 'TRAINING') {
+      return `GET /api/admin/trainings/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'TRAINING') {
+      return 'GET /api/admin/trainings'
+    }
+    
+    // === PUBLICAÇÕES ===
+    if (action.includes('CREATE') && entityType === 'PUBLICATION') {
+      return 'POST /api/admin/publications'
+    }
+    if (action.includes('UPDATE') && entityType === 'PUBLICATION') {
+      return `PUT /api/admin/publications/${entityId}`
+    }
+    if (action.includes('DELETE') && entityType === 'PUBLICATION') {
+      return `DELETE /api/admin/publications/${entityId}`
+    }
+    if (action.includes('GET') && entityType === 'PUBLICATION') {
+      return `GET /api/admin/publications/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'PUBLICATION') {
+      return 'GET /api/admin/publications'
+    }
+    
+    // === LOGS DE AUDITORIA ===
+    if (action.includes('EXPORT') && entityType === 'AUDIT_LOG') {
+      return 'GET /api/admin/audit-logs/export'
+    }
+    if (action.includes('GET') && entityType === 'AUDIT_LOG') {
+      return 'GET /api/admin/audit-logs'
+    }
+    
+    // === CONFIGURAÇÕES ===
+    if (action.includes('UPDATE') && entityType === 'SETTINGS') {
+      return 'PUT /api/admin/settings'
+    }
+    if (action.includes('GET') && entityType === 'SETTINGS') {
+      return 'GET /api/admin/settings'
+    }
+    
+    // === PERFIL DO USUÁRIO ===
+    if (action.includes('UPDATE') && entityType === 'PROFILE') {
+      return 'PUT /api/user/profile'
+    }
+    if (action.includes('GET') && entityType === 'PROFILE') {
+      return 'GET /api/user/profile'
+    }
+    
+    // === CATEGORIAS ===
+    if (action.includes('CREATE') && entityType === 'CATEGORY') {
+      return 'POST /api/admin/categories'
+    }
+    if (action.includes('UPDATE') && entityType === 'CATEGORY') {
+      return `PUT /api/admin/categories/${entityId}`
+    }
+    if (action.includes('DELETE') && entityType === 'CATEGORY') {
+      return `DELETE /api/admin/categories/${entityId}`
+    }
+    if (action.includes('GET') && entityType === 'CATEGORY') {
+      return `GET /api/admin/categories/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'CATEGORY') {
+      return 'GET /api/admin/categories'
+    }
+    
+    // === TAGS ===
+    if (action.includes('CREATE') && entityType === 'TAG') {
+      return 'POST /api/admin/tags'
+    }
+    if (action.includes('UPDATE') && entityType === 'TAG') {
+      return `PUT /api/admin/tags/${entityId}`
+    }
+    if (action.includes('DELETE') && entityType === 'TAG') {
+      return `DELETE /api/admin/tags/${entityId}`
+    }
+    if (action.includes('GET') && entityType === 'TAG') {
+      return `GET /api/admin/tags/${entityId}`
+    }
+    if (action.includes('LIST') && entityType === 'TAG') {
+      return 'GET /api/admin/tags'
+    }
+    
+    // Fallback inteligente baseado no actionType e entityType
+    if (actionType === 'CREATE') {
+      if (entityType === 'USER') return 'POST /api/rh/employees'
+      if (entityType === 'SECTOR') return 'POST /api/admin/sectors'
+      if (entityType === 'GROUP') return 'POST /api/admin/groups'
+      if (entityType === 'EVENT') return 'POST /api/admin/events'
+      if (entityType === 'JOB') return 'POST /api/admin/jobs'
+      if (entityType === 'PROCEDURE') return 'POST /api/admin/procedures'
+      if (entityType === 'TRAINING') return 'POST /api/admin/trainings'
+      if (entityType === 'PUBLICATION') return 'POST /api/admin/publications'
+      if (entityType === 'CATEGORY') return 'POST /api/admin/categories'
+      if (entityType === 'TAG') return 'POST /api/admin/tags'
+      return 'POST /api/admin/...'
+    }
+    
+    if (actionType === 'UPDATE') {
+      if (entityType === 'USER') return `PUT /api/admin/users/${entityId || '[id]'}`
+      if (entityType === 'SECTOR') return `PUT /api/admin/sectors/${entityId || '[id]'}`
+      if (entityType === 'GROUP') return `PUT /api/admin/groups/${entityId || '[id]'}`
+      if (entityType === 'EVENT') return `PUT /api/admin/events/${entityId || '[id]'}`
+      if (entityType === 'JOB') return `PUT /api/admin/jobs/${entityId || '[id]'}`
+      if (entityType === 'PROCEDURE') return `PUT /api/admin/procedures/${entityId || '[id]'}`
+      if (entityType === 'TRAINING') return `PUT /api/admin/trainings/${entityId || '[id]'}`
+      if (entityType === 'PUBLICATION') return `PUT /api/admin/publications/${entityId || '[id]'}`
+      if (entityType === 'CATEGORY') return `PUT /api/admin/categories/${entityId || '[id]'}`
+      if (entityType === 'TAG') return `PUT /api/admin/tags/${entityId || '[id]'}`
+      return `PUT /api/admin/${entityType?.toLowerCase() || '...'}/${entityId || '[id]'}`
+    }
+    
+    if (actionType === 'DELETE') {
+      if (entityType === 'USER') return `DELETE /api/admin/users/${entityId || '[id]'}`
+      if (entityType === 'SECTOR') return `DELETE /api/admin/sectors/${entityId || '[id]'}`
+      if (entityType === 'GROUP') return `DELETE /api/admin/groups/${entityId || '[id]'}`
+      if (entityType === 'EVENT') return `DELETE /api/admin/events/${entityId || '[id]'}`
+      if (entityType === 'JOB') return `DELETE /api/admin/jobs/${entityId || '[id]'}`
+      if (entityType === 'PROCEDURE') return `DELETE /api/admin/procedures/${entityId || '[id]'}`
+      if (entityType === 'TRAINING') return `DELETE /api/admin/trainings/${entityId || '[id]'}`
+      if (entityType === 'PUBLICATION') return `DELETE /api/admin/publications/${entityId || '[id]'}`
+      if (entityType === 'CATEGORY') return `DELETE /api/admin/categories/${entityId || '[id]'}`
+      if (entityType === 'TAG') return `DELETE /api/admin/tags/${entityId || '[id]'}`
+      return `DELETE /api/admin/${entityType?.toLowerCase() || '...'}/${entityId || '[id]'}`
+    }
+    
+    if (actionType === 'VIEW' || action.includes('VIEW')) {
+      if (entityType === 'USER') return `GET /api/admin/users/${entityId || ''}`
+      if (entityType === 'SECTOR') return `GET /api/admin/sectors/${entityId || ''}`
+      if (entityType === 'GROUP') return `GET /api/admin/groups/${entityId || ''}`
+      if (entityType === 'EVENT') return `GET /api/admin/events/${entityId || ''}`
+      if (entityType === 'JOB') return `GET /api/admin/jobs/${entityId || ''}`
+      if (entityType === 'PROCEDURE') return `GET /api/admin/procedures/${entityId || ''}`
+      if (entityType === 'TRAINING') return `GET /api/admin/trainings/${entityId || ''}`
+      if (entityType === 'PUBLICATION') return `GET /api/admin/publications/${entityId || ''}`
+      if (entityType === 'CATEGORY') return `GET /api/admin/categories/${entityId || ''}`
+      if (entityType === 'TAG') return `GET /api/admin/tags/${entityId || ''}`
+      return `GET /api/admin/${entityType?.toLowerCase() || '...'}/${entityId || ''}`
+    }
+    
+    // Fallback final
+    return `Rota não identificada (${actionType} ${entityType})`
+  }
+
+  // Função para obter descrição detalhada da ação
+  const getDetailedDescription = (log: AuditLog): string => {
+    const { action, actionType, entityType, entityName, userName, userEmail } = log
+    
+    const descriptions: Record<string, string> = {
+      'CREATE': `Criou ${entityType?.toLowerCase() || 'entidade'} "${entityName || 'N/A'}"`,
+      'UPDATE': `Atualizou ${entityType?.toLowerCase() || 'entidade'} "${entityName || 'N/A'}"`,
+      'DELETE': `Excluiu ${entityType?.toLowerCase() || 'entidade'} "${entityName || 'N/A'}"`,
+      'APPROVE': `Aprovou ${entityType?.toLowerCase() || 'entidade'} "${entityName || 'N/A'}"`,
+      'REJECT': `Rejeitou ${entityType?.toLowerCase() || 'entidade'} "${entityName || 'N/A'}"`,
+      'LOGIN': `Fez login no sistema`,
+      'LOGOUT': `Fez logout do sistema`,
+      'VIEW': `Visualizou ${entityType?.toLowerCase() || 'entidade'} "${entityName || 'N/A'}"`,
+      'EXPORT': `Exportou dados`,
+      'IMPORT': `Importou dados`,
+      'UPLOAD': `Fez upload de arquivo`,
+      'DOWNLOAD': `Fez download de arquivo`
+    }
+    
+    return descriptions[actionType] || action
+  }
+
   const getResultLabel = (result: ActionResult): string => {
     const labels = {
       [ActionResult.SUCCESS]: 'Sucesso',
@@ -210,6 +562,7 @@ export default function AuditLogsSection({ activeTab }: AuditLogsSectionProps) {
     setCurrentPage(1)
   }
 
+
   const exportLogs = async () => {
     try {
       const params = new URLSearchParams()
@@ -246,13 +599,6 @@ export default function AuditLogsSection({ activeTab }: AuditLogsSectionProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Logs de Auditoria</h1>
-        <p className="text-muted-foreground">
-          Monitora todas as atividades dos usuários no sistema com detalhes completos.
-        </p>
-      </div>
-
       {/* Filters and Search */}
       <Card>
         <CardHeader>
@@ -427,8 +773,8 @@ export default function AuditLogsSection({ activeTab }: AuditLogsSectionProps) {
                           </Badge>
                         </TableCell>
                         <TableCell className="max-w-xs">
-                          <div className="truncate" title={log.description}>
-                            {log.description}
+                          <div className="truncate" title={getDetailedDescription(log)}>
+                            {getDetailedDescription(log)}
                           </div>
                         </TableCell>
                         <TableCell>

@@ -10,6 +10,28 @@ export interface DocumentServiceResponse<T> {
 export class DocumentService {
   private static readonly BASE_URL = '/api/admin/procedures'
 
+  /**
+   * Determina o status do documento mapeando SOMENTE o status do backend,
+   * mantendo 'expired' quando a data já passou. NÃO usa "pendente" por proximidade.
+   */
+  private static determineDocumentStatus(backendStatus: string, expiryDate: string | null | undefined): Document['status'] {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (expiryDate) {
+      const expiry = new Date(expiryDate)
+      expiry.setHours(0, 0, 0, 0)
+      if (expiry.getTime() < today.getTime()) {
+        return 'expired'
+      }
+    }
+
+    if (backendStatus === 'PUBLISHED') return 'active'
+    if (backendStatus === 'DRAFT') return 'pending'
+    if (backendStatus === 'ARCHIVED') return 'inactive'
+    return 'inactive'
+  }
+
   static async fetchDocuments(): Promise<DocumentServiceResponse<Document[]>> {
     try {
       const response = await fetch(this.BASE_URL)
@@ -21,16 +43,19 @@ export class DocumentService {
       const documentsData = await response.json()
       
       // Transformar dados da API para corresponder à interface Document
-      const transformedDocuments = documentsData.map((doc: any) => ({
+        const transformedDocuments = documentsData.map((doc: any) => {
+        // Determinar status usando a função helper
+        const status = this.determineDocumentStatus(doc.status, doc.expiryDate)
+        return ({
         id: doc.id,
         code: doc.title.substring(0, 10) || "DOC-" + doc.id.substring(0, 4),
         title: doc.title,
-        version: "1.0",
+        version: doc.version || "1.0", // Usar versão do backend (calculada do histórico)
         issueDate: doc.documentDate ? new Date(doc.documentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         reviewDate: doc.documentDate ? new Date(doc.documentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         nextReviewDate: doc.expiryDate ? new Date(doc.expiryDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         responsibleSector: doc.sector?.name || "",
-        status: doc.status === 'PUBLISHED' ? 'active' : doc.status === 'DRAFT' ? 'pending' : 'inactive',
+        status,
         type: doc.type === 'MANAGEMENT_PROCEDURE' ? 'procedure' : 'instruction',
         description: doc.content || "",
         approver: "",
@@ -41,10 +66,13 @@ export class DocumentService {
         fileSize: doc.fileSize,
         fileType: doc.fileName?.split('.').pop() || "",
         accessLevel: "public"
-      }))
+      })})
+
+      // Remover mocks conhecidos (títulos como "Mock Doc ...")
+      const cleanedDocuments = transformedDocuments.filter((d: any) => !/^mock\s+doc/i.test(d.title || ''))
 
       return {
-        data: transformedDocuments,
+        data: cleanedDocuments,
         error: null,
         success: true
       }
@@ -71,12 +99,25 @@ export class DocumentService {
       }
 
       // Criar FormData para requisição da API
+      // Sempre usar a data atual para criação (não permitir alteração)
+      const today = new Date().toISOString().split('T')[0]
+      
       const apiFormData = new FormData()
       apiFormData.append('title', formData.title)
       apiFormData.append('content', formData.description)
       apiFormData.append('type', formData.type === 'procedure' ? 'MANAGEMENT_PROCEDURE' : 'WORK_INSTRUCTION')
       apiFormData.append('status', 'PUBLISHED')
-      apiFormData.append('documentDate', formData.issueDate)
+      apiFormData.append('documentDate', today)
+      
+      // Adicionar data de vencimento se fornecida
+      if (formData.nextReviewDate) {
+        apiFormData.append('expiryDate', formData.nextReviewDate)
+      } else {
+        // Garantir status ativo na criação: definir 31 dias à frente
+        const base = new Date(today)
+        base.setDate(base.getDate() + 31)
+        apiFormData.append('expiryDate', base.toISOString().split('T')[0])
+      }
       
       // Encontrar ID do setor a partir do nome do setor
       const sector = sectors.find(s => s.name === formData.responsibleSector)
@@ -106,16 +147,17 @@ export class DocumentService {
       const data = await response.json()
       
       // Transformar a resposta para corresponder à interface Document
+      // Na criação, sempre usar status 'active' (ignorar regra de 30 dias)
       const newDocument: Document = {
         id: data.id,
         code: formData.code,
         title: data.title,
-        version: "1.0",
+        version: data.version || "1.0",
         issueDate: data.documentDate ? new Date(data.documentDate).toISOString().split('T')[0] : formData.issueDate,
         reviewDate: data.documentDate ? new Date(data.documentDate).toISOString().split('T')[0] : formData.issueDate,
-        nextReviewDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : new Date(formData.issueDate),
+        nextReviewDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : (formData.nextReviewDate || new Date(formData.issueDate).toISOString().split('T')[0]),
         responsibleSector: data.sector?.name || formData.responsibleSector,
-        status: 'active',
+        status: 'active', // Sempre criar com status ativo
         type: formData.type,
         description: data.content || "",
         approver: "",
@@ -159,9 +201,29 @@ export class DocumentService {
       const apiFormData = new FormData()
       apiFormData.append('title', formData.title)
       apiFormData.append('content', formData.description)
-      apiFormData.append('type', formData.type === 'procedure' ? 'MANAGEMENT_PROCEDURE' : 'WORK_INSTRUCTION')
-      apiFormData.append('status', 'PUBLISHED')
-      apiFormData.append('documentDate', formData.issueDate)
+      
+      // Mapeia status do frontend para backend
+      if (formData.status === 'inactive') {
+        apiFormData.append('type', 'WORK_INSTRUCTION') // "other" mapeado para WORK_INSTRUCTION
+        apiFormData.append('status', 'ARCHIVED')
+      } else if (formData.status === 'expired') {
+        // Para expirado, mantém o tipo e status original, mas define expiryDate no passado
+        apiFormData.append('type', formData.type === 'procedure' ? 'MANAGEMENT_PROCEDURE' : 'WORK_INSTRUCTION')
+        apiFormData.append('status', 'PUBLISHED') // Mantém como PUBLISHED, o expired é calculado pela data
+        // Define expiryDate para ontem para garantir que está expirado
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        apiFormData.append('expiryDate', yesterday.toISOString().split('T')[0])
+      } else {
+        apiFormData.append('type', formData.type === 'procedure' ? 'MANAGEMENT_PROCEDURE' : 'WORK_INSTRUCTION')
+        apiFormData.append('status', formData.status === 'pending' ? 'DRAFT' : 'PUBLISHED')
+      }
+      
+      // Não permitir alterar a data de criação na edição
+      // A data de criação permanece a mesma do documento original
+      // Não enviar documentDate no update para manter a data original
+      
+      // Não permitir alterar data de vencimento por aqui; reaprazamento é via fluxo dedicado
       
       // Encontrar ID do setor a partir do nome do setor
       const sector = sectors.find(s => s.name === formData.responsibleSector)
@@ -191,17 +253,31 @@ export class DocumentService {
       const data = await response.json()
       
       // Transformar a resposta para corresponder à interface Document
+      // Na edição, SEMPRE usar o status escolhido pelo usuário (ignorar regra de 30 dias)
+      // A regra de 30 dias só se aplica na listagem, não na edição manual
+      // Se o usuário escolheu um status, usar esse status diretamente
+      let status: Document['status'] = 'active'
+      if (formData.status) {
+        status = formData.status
+      } else {
+        // Se não foi escolhido, aplicar a regra de 30 dias
+        status = this.determineDocumentStatus(data.status || 'PUBLISHED', data.expiryDate)
+      }
+      
+      // Se o status for inativo, o tipo deve ser "other"
+      const documentType = status === 'inactive' ? 'other' : (formData.type || (data.type === 'MANAGEMENT_PROCEDURE' ? 'procedure' : 'instruction'))
+      
       const updatedDocument: Document = {
         id: data.id,
         code: formData.code,
         title: data.title,
-        version: formData.version,
+        version: data.version || "1.0", // Versão sempre vem do backend, calculada do histórico
         issueDate: data.documentDate ? new Date(data.documentDate).toISOString().split('T')[0] : formData.issueDate,
         reviewDate: data.documentDate ? new Date(data.documentDate).toISOString().split('T')[0] : formData.issueDate,
-        nextReviewDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : new Date(formData.issueDate),
+        nextReviewDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : new Date(formData.issueDate).toISOString().split('T')[0],
         responsibleSector: data.sector?.name || formData.responsibleSector,
-        status: 'active',
-        type: formData.type,
+        status,
+        type: documentType,
         description: data.content || "",
         approver: "",
         createdBy: data.createdBy?.name || "Unknown",
@@ -251,6 +327,89 @@ export class DocumentService {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         success: false
       }
+    }
+  }
+
+  static async rescheduleDocument(id: string, newExpiryDate: string): Promise<DocumentServiceResponse<Document>> {
+    try {
+      const formData = new FormData()
+      formData.append('expiryDate', newExpiryDate)
+
+      const response = await fetch(`${this.BASE_URL}/${id}/reschedule`, {
+        method: 'PUT',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      // Transformar a resposta para corresponder à interface Document
+      const status = this.determineDocumentStatus(data.status || 'PUBLISHED', data.expiryDate)
+      
+      const updatedDocument: Document = {
+        id: data.id,
+        code: data.title?.substring(0, 10) || `DOC-${data.id.substring(0, 4)}`,
+        title: data.title,
+        version: data.version || "1.0",
+        issueDate: data.documentDate ? new Date(data.documentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        reviewDate: data.documentDate ? new Date(data.documentDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        nextReviewDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        responsibleSector: data.sector?.name || "",
+        status,
+        type: data.type === 'MANAGEMENT_PROCEDURE' ? 'procedure' : 'instruction',
+        description: data.content || "",
+        approver: "",
+        createdBy: data.createdBy?.name || "Unknown",
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        fileUrl: data.fileUrl,
+        fileSize: data.fileSize,
+        fileType: data.fileName?.split('.').pop() || "",
+        accessLevel: "public"
+      }
+
+      return {
+        data: updatedDocument,
+        error: null,
+        success: true
+      }
+    } catch (error) {
+      console.error('Error rescheduling document:', error)
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        success: false
+      }
+    }
+  }
+
+  static async logAccess(id: string, action: 'VIEWED' | 'DOWNLOADED' | 'EDITED'): Promise<void> {
+    try {
+      const url = `${this.BASE_URL}/${id}/access`
+      const payload = JSON.stringify({ action })
+
+      // Preferir sendBeacon para garantir envio mesmo com navegação/download
+      if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+        const blob = new Blob([payload], { type: 'application/json' })
+        const ok = (navigator as any).sendBeacon(url, blob)
+        if (ok) return
+        // fallback para fetch caso sendBeacon retorne false
+      }
+
+      // Fallback: fetch com keepalive para não ser cancelado em navegação
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true
+      })
+    } catch (e) {
+      // Falha em log não deve quebrar UX
+      console.warn('Failed to log document access:', e)
     }
   }
 

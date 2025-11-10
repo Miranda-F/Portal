@@ -14,11 +14,7 @@ export class DocumentValidator {
   private static readonly MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
   private static readonly ALLOWED_FILE_TYPES = [
     'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'text/plain'
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   ]
 
   static validateDocumentForm(formData: DocumentFormData, isEditing: boolean = false): ValidationResult {
@@ -95,7 +91,7 @@ export class DocumentValidator {
     if (!this.ALLOWED_FILE_TYPES.includes(file.type)) {
       errors.push({ 
         field: 'file', 
-        message: 'Tipo de arquivo não suportado. Use PDF, DOC, DOCX, XLS, XLSX ou TXT.' 
+        message: 'Tipo de arquivo não suportado. Use apenas PDF ou DOCX.' 
       })
     }
 

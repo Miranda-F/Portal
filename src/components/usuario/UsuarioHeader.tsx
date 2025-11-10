@@ -81,8 +81,8 @@ export function UsuarioHeader({
                   {photoRemoved ? (
                     (profileForm.name || user?.name) ? getInitials(profileForm.name || user?.name || '') : 'U'
                   ) : latestPhotoUrl || user?.photoUrl ? (
-                    <RobustAvatarImage 
-                      src={latestPhotoUrl ? latestPhotoUrl : (user?.photoUrl?.startsWith('http') ? `${user.photoUrl}?t=${Date.now()}` : `${window.location.origin}${user.photoUrl}?t=${Date.now()}`)} 
+                      <RobustAvatarImage 
+                      src={latestPhotoUrl ? latestPhotoUrl : (user?.photoUrl?.startsWith('http') ? `${user?.photoUrl}?t=${Date.now()}` : `${window.location.origin}${user?.photoUrl}?t=${Date.now()}`)} 
                       alt={user?.name || 'User'} 
                       className="w-full h-full object-cover"
                       onError={() => {

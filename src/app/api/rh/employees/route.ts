@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    // Buscar funcionários da tabela Employee
     const employees = await db.employee.findMany({
       where: whereClause,
       include: {
@@ -65,7 +66,44 @@ export async function GET(request: NextRequest) {
       ]
     })
 
-    return NextResponse.json(employees)
+    // Adicionar flag de origem para funcionários existentes
+    const employeesWithOrigin = employees.map(emp => ({
+      ...emp,
+      origin: 'RH' // Funcionários da tabela Employee vêm do RH
+    }))
+
+    // Usar apenas funcionários da tabela Employee
+    const allEmployees = employeesWithOrigin
+
+    // Aplicar filtros de busca nos dados combinados
+    let filteredEmployees = allEmployees
+
+    if (search) {
+      filteredEmployees = allEmployees.filter(emp => 
+        emp.name.toLowerCase().includes(search.toLowerCase()) ||
+        emp.email.toLowerCase().includes(search.toLowerCase()) ||
+        emp.cpf.includes(search) ||
+        emp.position.toLowerCase().includes(search.toLowerCase())
+      )
+    }
+
+    if (status && status !== 'all') {
+      filteredEmployees = filteredEmployees.filter(emp => emp.status === status)
+    }
+
+    if (sectorId && sectorId !== 'all') {
+      filteredEmployees = filteredEmployees.filter(emp => emp.sectorId === sectorId)
+    }
+
+    // Ordenar resultado final
+    filteredEmployees.sort((a, b) => {
+      if (a.status !== b.status) {
+        return a.status === 'ACTIVE' ? -1 : 1
+      }
+      return a.name.localeCompare(b.name)
+    })
+
+    return NextResponse.json(filteredEmployees)
   } catch (error) {
     console.error('Error fetching employees:', error)
     return NextResponse.json(
@@ -131,6 +169,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Mapear educationLevel para valores válidos do enum
+    const mapEducationLevel = (level: string) => {
+      switch (level) {
+        case 'ELEMENTARY': return 'ELEMENTARY'
+        case 'HIGH_SCHOOL': return 'HIGH_SCHOOL'
+        case 'COLLEGE': return 'COLLEGE'
+        case 'GRADUATE': return 'GRADUATE'
+        case 'POST_GRADUATE': return 'POST_GRADUATE'
+        case 'PHD': return 'PHD'
+        case 'DOCTORATE': return 'PHD' // Mapear DOCTORATE para PHD
+        default: return null
+      }
+    }
+
     // Criar o colaborador
     const employee = await db.employee.create({
       data: {
@@ -147,7 +199,7 @@ export async function POST(request: NextRequest) {
         status: body.status || 'ACTIVE',
         birthDate: body.birthDate ? new Date(body.birthDate) : null,
         gender: body.gender || null,
-        educationLevel: body.educationLevel || null,
+        educationLevel: mapEducationLevel(body.educationLevel),
         maritalStatus: body.maritalStatus || null,
         emergencyContact: body.emergencyContact || null,
         emergencyPhone: body.emergencyPhone || null,
@@ -178,7 +230,33 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json(employee, { status: 201 })
+    // Criar User correspondente automaticamente
+    try {
+      const hashedPassword = await import('@/lib/auth').then(({ hashPassword }) => hashPassword('123456')) // Senha padrão
+      
+      await db.user.create({
+        data: {
+          email: body.email,
+          name: body.name,
+          password: hashedPassword,
+          role: 'USER',
+          sectorId: body.sectorId,
+          approved: true,
+          showIdentityCard: true
+        }
+      })
+    } catch (error) {
+      console.error('Error creating corresponding user:', error)
+      // Não falhar a criação do funcionário se não conseguir criar o usuário
+    }
+
+    // Adicionar flag de origem para funcionários criados no RH
+    const employeeWithOrigin = {
+      ...employee,
+      origin: 'RH' // Origem: ADMIN ou RH
+    }
+
+    return NextResponse.json(employeeWithOrigin, { status: 201 })
   } catch (error) {
     console.error('Error creating employee:', error)
     return NextResponse.json(

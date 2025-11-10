@@ -3,7 +3,32 @@ import { verifySession, getSessionCookieFromNextRequest } from '@/lib/session'
 import { db } from '@/lib/db'
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
-import { createProcedureHistory } from '@/lib/procedure-history'
+import { createProcedureHistory, getProcedureHistory } from '@/lib/procedure-history'
+import { parseLocalDate } from '@/lib/date-utils'
+
+// Função auxiliar para calcular a versão atual baseada no histórico
+function calculateCurrentVersion(history: any[]): string {
+  const filteredHistory = history.filter((h: any) => ['CREATED', 'UPDATED', 'RESCHEDULED', 'DELETED'].includes(h.action))
+  const reversedHistory = [...filteredHistory].reverse()
+  let currentVersion = '1.0'
+  
+  reversedHistory.forEach((h: any) => {
+    if (h.action === 'CREATED') {
+      currentVersion = '1.0'
+    } else if (h.action === 'UPDATED') {
+      const [major, minor] = currentVersion.split('.').map(Number)
+      const newMinor = minor + 1
+      if (newMinor >= 10) {
+        currentVersion = `${major + 1}.0`
+      } else {
+        currentVersion = `${major}.${newMinor}`
+      }
+    }
+    // RESCHEDULED e DELETED mantêm a versão atual
+  })
+  
+  return currentVersion
+}
 
 async function getAuthUser(request: NextRequest) {
   const token = getSessionCookieFromNextRequest(request)
@@ -29,7 +54,6 @@ export async function GET(request: NextRequest) {
         SELECT id, title, type FROM Procedure
       `
       
-      console.log('Current procedures in database:', allProcedures)
       
       // Check for old enum values
       const proceduresWithOldTypes = await db.$queryRaw`
@@ -37,7 +61,6 @@ export async function GET(request: NextRequest) {
         WHERE type IN ('QUALITY', 'INSPECTION', 'STRATIFICATION', 'ANNOUNCEMENT')
       `
       
-      console.log('Procedures with old types:', proceduresWithOldTypes)
       
       if (Array.isArray(proceduresWithOldTypes) && proceduresWithOldTypes.length > 0) {
         // Update them
@@ -47,10 +70,9 @@ export async function GET(request: NextRequest) {
           WHERE type IN ('QUALITY', 'INSPECTION', 'STRATIFICATION', 'ANNOUNCEMENT')
         `
         
-        console.log('Updated procedures:', updateResult)
       }
       
-      // Now try to get procedures with proper includes
+      // Buscar todos os procedures (não há mais soft delete)
       const procedures = await db.procedure.findMany({
         orderBy: { createdAt: 'desc' },
         include: {
@@ -70,12 +92,33 @@ export async function GET(request: NextRequest) {
         },
       })
 
-      return NextResponse.json(procedures)
-    } catch (error) {
-      console.error('Database operation failed:', error)
-      
-      // If all else fails, try to get procedures without includes first
-      try {
+      // Calcular versão para cada procedimento baseado no histórico
+      const proceduresWithVersion = await Promise.all(
+        procedures.map(async (procedure) => {
+          try {
+            const history = await getProcedureHistory(procedure.id)
+            const version = calculateCurrentVersion(history)
+            return {
+              ...procedure,
+              version
+            }
+          } catch (error) {
+            console.warn(`Error calculating version for procedure ${procedure.id}:`, error)
+            // Se falhar, retornar sem versão (frontend usará "1.0" como fallback)
+            return {
+              ...procedure,
+              version: '1.0'
+            }
+          }
+        })
+      )
+
+      return NextResponse.json(proceduresWithVersion)
+      } catch (error: any) {
+        console.error('Database operation failed:', error)
+        
+        // If all else fails, try to get procedures without includes first
+        try {
         const simpleProcedures = await db.$queryRaw`
           SELECT 
             p.id, p.title, p.content, p.type, p.status, 
@@ -89,34 +132,71 @@ export async function GET(request: NextRequest) {
           ORDER BY p.createdAt DESC
         `
         
-        console.log('Raw query result:', simpleProcedures)
         
         // Transform the result to match the expected format
-        const formattedProcedures = Array.isArray(simpleProcedures) ? simpleProcedures.map(p => ({
-          id: p.id,
-          title: p.title,
-          content: p.content,
-          type: p.type,
-          status: p.status,
-          documentDate: p.documentDate,
-          expiryDate: p.expiryDate,
-          fileUrl: p.fileUrl,
-          fileName: p.fileName,
-          fileSize: p.fileSize,
-          createdAt: p.createdAt,
-          updatedAt: p.updatedAt,
-          createdById: p.createdById,
-          sectorId: p.sectorId,
-          createdBy: p.createdByName ? {
-            id: p.createdById,
-            name: p.createdByName,
-            email: p.createdByEmail,
-          } : null,
-          sector: p.sectorName ? {
-            id: p.sectorId,
-            name: p.sectorName,
-          } : null,
-        })) : []
+        // Calcular versão para cada procedimento baseado no histórico
+        const formattedProcedures = Array.isArray(simpleProcedures) ? await Promise.all(
+          simpleProcedures.map(async (p: any) => {
+            try {
+              const history = await getProcedureHistory(p.id)
+              const version = calculateCurrentVersion(history)
+              return {
+                id: p.id,
+                title: p.title,
+                content: p.content,
+                type: p.type,
+                status: p.status,
+                documentDate: p.documentDate,
+                expiryDate: p.expiryDate,
+                fileUrl: p.fileUrl,
+                fileName: p.fileName,
+                fileSize: p.fileSize,
+                createdAt: p.createdAt,
+                updatedAt: p.updatedAt,
+                createdById: p.createdById,
+                sectorId: p.sectorId,
+                version,
+                createdBy: p.createdByName ? {
+                  id: p.createdById,
+                  name: p.createdByName,
+                  email: p.createdByEmail,
+                } : null,
+                sector: p.sectorName ? {
+                  id: p.sectorId,
+                  name: p.sectorName,
+                } : null,
+              }
+            } catch (error) {
+              console.warn(`Error calculating version for procedure ${p.id}:`, error)
+              return {
+                id: p.id,
+                title: p.title,
+                content: p.content,
+                type: p.type,
+                status: p.status,
+                documentDate: p.documentDate,
+                expiryDate: p.expiryDate,
+                fileUrl: p.fileUrl,
+                fileName: p.fileName,
+                fileSize: p.fileSize,
+                createdAt: p.createdAt,
+                updatedAt: p.updatedAt,
+                createdById: p.createdById,
+                sectorId: p.sectorId,
+                version: '1.0',
+                createdBy: p.createdByName ? {
+                  id: p.createdById,
+                  name: p.createdByName,
+                  email: p.createdByEmail,
+                } : null,
+                sector: p.sectorName ? {
+                  id: p.sectorId,
+                  name: p.sectorName,
+                } : null,
+              }
+            }
+          })
+        ) : []
         
         return NextResponse.json(formattedProcedures)
       } catch (rawError) {
@@ -154,9 +234,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title and type are required' }, { status: 400 })
     }
 
-    let fileUrl = null
-    let fileName = null
-    let fileSize = null
+    let fileUrl: string | null = null
+    let fileName: string | null = null
+    let fileSize: number | null = null
 
     // Handle file upload
     if (file && file.size > 0) {
@@ -171,28 +251,32 @@ export async function POST(request: NextRequest) {
         
         // Save file to public directory
         const path = join(process.cwd(), 'public', 'uploads', 'procedures', filename)
-        console.log('Saving file to:', path)
         await writeFile(path, buffer)
-        console.log('File saved successfully')
 
         fileUrl = `/uploads/procedures/${filename}`
         fileName = originalName
         fileSize = file.size
-      } catch (fileError) {
+      } catch (fileError: any) {
         console.error('Error saving file:', fileError)
         return NextResponse.json({ 
           error: 'Error saving file', 
-          details: fileError.message 
+          details: fileError?.message || 'Unknown error' 
         }, { status: 500 })
       }
     }
 
-    // Calculate expiry date if document date is provided
-    let expiryDate = null
-    if (documentDateStr) {
-      const documentDate = new Date(documentDateStr)
+    // Get expiry date from form data or calculate it
+    const expiryDateStr = formData.get('expiryDate') as string | null
+    let expiryDate: Date | null = null
+    
+    if (expiryDateStr) {
+      // Use provided expiry date (parse safely)
+      expiryDate = parseLocalDate(expiryDateStr)
+    } else if (documentDateStr) {
+      // Calculate expiry date if document date is provided (31 days later to ensure ACTIVE)
+      const documentDate = parseLocalDate(documentDateStr)
       expiryDate = new Date(documentDate)
-      expiryDate.setFullYear(expiryDate.getFullYear() + 1)
+      expiryDate.setDate(expiryDate.getDate() + 31)
     }
 
     const createData: any = {
@@ -204,13 +288,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (sectorId && sectorId !== "none") createData.sectorId = sectorId
-    if (documentDateStr) createData.documentDate = new Date(documentDateStr)
+    if (documentDateStr) createData.documentDate = parseLocalDate(documentDateStr)
     if (expiryDate) createData.expiryDate = expiryDate
-    if (fileUrl) {
-      createData.fileUrl = fileUrl
-      createData.fileName = fileName
-      createData.fileSize = fileSize
-    }
+    if (fileUrl) createData.fileUrl = fileUrl
+    if (fileName) createData.fileName = fileName
+    if (fileSize !== null) createData.fileSize = fileSize
 
     try {
       const procedure = await db.procedure.create({
@@ -231,7 +313,6 @@ export async function POST(request: NextRequest) {
           },
         },
       })
-      console.log('Procedure created successfully:', procedure.id)
 
       // Create history record for procedure creation
       try {
@@ -245,22 +326,36 @@ export async function POST(request: NextRequest) {
             type: procedure.type,
             status: procedure.status,
             sectorId: procedure.sectorId,
-            documentDate: procedure.documentDate,
+            documentDate: procedure.documentDate ? procedure.documentDate.toISOString() : null,
+            expiryDate: procedure.expiryDate ? procedure.expiryDate.toISOString() : null,
             fileUrl: procedure.fileUrl,
           }
         })
-        console.log('Procedure history created successfully')
       } catch (historyError) {
         console.error('Error creating procedure history:', historyError)
         // Don't fail the whole operation if history creation fails
       }
 
-      return NextResponse.json(procedure)
+      // Calcular versão atual (será 1.0 para novo documento)
+      try {
+        const history = await getProcedureHistory(procedure.id)
+        const currentVersion = calculateCurrentVersion(history)
+        return NextResponse.json({
+          ...procedure,
+          version: currentVersion
+        })
+      } catch (versionError) {
+        console.warn('Error calculating version:', versionError)
+        return NextResponse.json({
+          ...procedure,
+          version: '1.0'
+        })
+      }
     } catch (dbError) {
       console.error('Error creating procedure in database:', dbError)
       return NextResponse.json({ 
         error: 'Error creating procedure in database', 
-        details: dbError.message 
+        details: (dbError as any)?.message || 'Unknown error' 
       }, { status: 500 })
     }
   } catch (error) {

@@ -1,52 +1,43 @@
-import { db } from '../src/lib/db'
+import { PrismaClient } from '@prisma/client'
 import { hashPassword } from '../src/lib/auth'
+
+const prisma = new PrismaClient()
 
 async function createAdmin() {
   try {
-    const adminEmail = 'admin@pratagy.com.br'
-    const adminPassword = 'admin123'
-    
-    // Verificar se o administrador já existe
-    const existingAdmin = await db.user.findUnique({
-      where: { email: adminEmail }
+    console.log('🔐 Criando usuário administrador...')
+
+    // Verificar se já existe um admin
+    const existingAdmin = await prisma.user.findFirst({
+      where: { role: 'ADMIN' }
     })
-    
+
     if (existingAdmin) {
-      console.log('Admin user already exists')
+      console.log('⚠️  Usuário administrador já existe:', existingAdmin.email)
       return
     }
-    
-    // Obter setor TI
-    const tiSector = await db.sector.findFirst({
-      where: { name: 'TI' }
-    })
-    
-    if (!tiSector) {
-      console.error('TI sector not found')
-      return
-    }
-    
+
     // Criar usuário administrador
-    const hashedPassword = await hashPassword(adminPassword)
-    
-    await db.user.create({
+    const admin = await prisma.user.create({
       data: {
-        email: adminEmail,
-        name: 'Administrator',
-        sectorId: tiSector.id,
-        password: hashedPassword,
+        name: 'Administrador',
+        email: 'admin@pratagy.com.br',
+        password: await hashPassword('admin123'),
         role: 'ADMIN',
         approved: true,
+        sectorId: null
       }
     })
-    
-    console.log('Admin user created successfully')
-    console.log('Email:', adminEmail)
-    console.log('Password:', adminPassword)
+
+    console.log('✅ Usuário administrador criado com sucesso!')
+    console.log('📧 Email:', admin.email)
+    console.log('🔑 Senha: admin123')
+    console.log('👤 Nome:', admin.name)
+
   } catch (error) {
-    console.error('Error creating admin user:', error)
+    console.error('❌ Erro ao criar administrador:', error)
   } finally {
-    await db.$disconnect()
+    await prisma.$disconnect()
   }
 }
 

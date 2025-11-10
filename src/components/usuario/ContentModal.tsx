@@ -1,9 +1,11 @@
 "use client"
 
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { FileText, ExternalLink } from "lucide-react"
 import { Procedure } from "@/types/usuario"
+import { DocumentPreviewModal } from "@/components/document/document-preview-modal"
+import { useState } from "react"
 
 interface ContentModalProps {
   isOpen: boolean
@@ -16,8 +18,22 @@ export function ContentModal({
   onClose,
   selectedProcedure
 }: ContentModalProps) {
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<any>(null)
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR')
+  }
+
+  const truncateFileName = (fileName: string, maxLength: number = 30) => {
+    if (!fileName || fileName.length <= maxLength) {
+      return fileName
+    }
+    
+    const extension = fileName.split('.').pop()
+    const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'))
+    const truncatedName = nameWithoutExt.substring(0, maxLength)
+    
+    return `${truncatedName}...${extension ? `.${extension}` : ''}`
   }
 
   const getProcedureTypeLabel = (type: string) => {
@@ -28,24 +44,60 @@ export function ContentModal({
     }
   }
 
+  const getFileType = (fileName?: string | null) => {
+    if (!fileName) return 'pdf'
+    const extension = fileName.split('.').pop()?.toLowerCase()
+    return extension === 'docx' || extension === 'doc' ? 'docx' : 'pdf'
+  }
+
+  const getFileTypeLabel = (fileName?: string | null) => {
+    const fileType = getFileType(fileName)
+    return fileType === 'docx' ? 'Visualizar Documento' : 'Visualizar PDF'
+  }
+
+  const handleViewPdf = (procedure: Procedure) => {
+    // converte procedure para formato de documento
+    const fileType = getFileType(procedure.fileName)
+    const document = {
+      id: procedure.id,
+      title: procedure.title,
+      code: procedure.fileName?.replace(/\.[^/.]+$/, '') || procedure.title.substring(0, 10),
+      version: '1.0',
+      type: procedure.type === 'MANAGEMENT_PROCEDURE' ? 'management' : 'work_instruction',
+      fileUrl: procedure.fileUrl,
+      fileType: fileType,
+      fileName: procedure.fileName,
+      description: procedure.content,
+      status: procedure.status === 'PUBLISHED' ? 'active' : 'inactive',
+      responsibleSector: procedure.createdBy?.sectorId || 'N/A',
+      createdAt: procedure.createdAt,
+      updatedAt: procedure.createdAt,
+      createdBy: procedure.createdBy?.name || 'N/A'
+    }
+    
+    setSelectedDocument(document)
+    setIsPreviewModalOpen(true)
+  }
+
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] p-0">
-        <div className="flex flex-col">
-          {/* Modal Header */}
-          <div className="flex items-center justify-between p-4 border-b bg-muted">
-            <div className="flex items-center gap-3">
-              <FileText className="h-6 w-6 text-primary" />
-              <div>
-                <h3 className="text-lg font-semibold">
-                  {selectedProcedure?.title || 'Conteúdo do Procedimento'}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {selectedProcedure ? getProcedureTypeLabel(selectedProcedure.type) : ''}
-                </p>
-              </div>
+        <DialogHeader className="p-4 border-b bg-muted">
+          <div className="flex items-center gap-3">
+            <FileText className="h-6 w-6 text-primary" />
+            <div>
+              <DialogTitle className="text-lg font-semibold">
+                {selectedProcedure?.title || 'Conteúdo do Procedimento'}
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                {selectedProcedure ? getProcedureTypeLabel(selectedProcedure.type) : ''}
+              </p>
             </div>
           </div>
+        </DialogHeader>
+        
+        <div className="flex flex-col">
 
           {/* Content Area */}
           <div className="flex-1 overflow-auto p-6 bg-background">
@@ -73,7 +125,7 @@ export function ContentModal({
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-1">Arquivo</h4>
                   <p className="text-sm">
-                    {selectedProcedure?.fileName || 'N/A'}
+                    {selectedProcedure?.fileName ? truncateFileName(selectedProcedure.fileName) : 'N/A'}
                   </p>
                 </div>
               </div>
@@ -96,19 +148,19 @@ export function ContentModal({
                 </div>
               </div>
 
-              {/* Ação para abrir PDF */}
+              {/* Ação para abrir arquivo */}
               {selectedProcedure?.fileUrl && (
                 <div className="pt-4 border-t">
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground mb-4">
-                      O PDF está disponível para visualização. Clique no botão abaixo para abri-lo em uma nova aba.
+                      O documento está disponível para visualização. Clique no botão abaixo para visualizá-lo.
                     </p>
                     <Button
-                      onClick={() => window.open(selectedProcedure.fileUrl, '_blank')}
+                      onClick={() => handleViewPdf(selectedProcedure)}
                       className="flex items-center gap-2 mx-auto"
                     >
-                      <ExternalLink className="h-4 w-4" />
-                      Abrir PDF em Nova Aba
+                      <FileText className="h-4 w-4" />
+                      {getFileTypeLabel(selectedProcedure.fileName)}
                     </Button>
                   </div>
                 </div>
@@ -117,6 +169,16 @@ export function ContentModal({
           </div>
         </div>
       </DialogContent>
+      
+      {/* modal de preview do pdf */}
+      <DocumentPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => {
+          setIsPreviewModalOpen(false)
+          setSelectedDocument(null)
+        }}
+        document={selectedDocument}
+      />
     </Dialog>
   )
 }

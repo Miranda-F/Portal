@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifySession, getSessionCookieFromNextRequest } from '@/lib/session'
 import { parse } from 'cookie'
+import { auditCrudAction } from '@/lib/audit-middleware'
+import { getClientIP, getUserAgent } from '@/lib/auth-utils'
 
 async function getAuthUser(request: NextRequest) {
   // Try to get session from cookie directly
@@ -123,6 +125,27 @@ export async function POST(request: NextRequest) {
         }
       }
     })
+
+    // Registrar auditoria da criação
+    await auditCrudAction(
+      request,
+      'CREATE',
+      'SECTOR',
+      sector.id,
+      sector.name,
+      {
+        id: session.userId,
+        name: session.name,
+        email: session.email,
+        role: session.role
+      },
+      null,
+      {
+        name: sector.name,
+        description: sector.description,
+        active: sector.active
+      }
+    )
 
     return NextResponse.json(sector)
   } catch (error) {

@@ -46,10 +46,11 @@ export function ThemeToggle() {
 
   return (
     <Button 
-      variant="outline" 
+      variant="ghost" 
       size="icon" 
       onClick={toggleTheme}
       title={getThemeLabel()}
+      className="text-gray-600 hover:text-gray-900 hover:bg-gray-200 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700"
     >
       {getThemeIcon()}
       <span className="sr-only">Alternar tema</span>

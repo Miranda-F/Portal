@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -33,6 +33,35 @@ export function DocumentHistoryModal({
 }: DocumentHistoryModalProps) {
   if (!document) return null
 
+  // Access filters
+  const [accessActionFilter, setAccessActionFilter] = useState<'all' | 'viewed' | 'downloaded' | 'edited'>('all')
+  const filteredAccess = useMemo(() => 
+    access.filter((a) => accessActionFilter === 'all' ? true : a.action === accessActionFilter),
+    [access, accessActionFilter]
+  )
+
+  // Latest version from versions list (fallback to document.version)
+  // Versões estão ordenadas do mais recente para o mais antigo, então versions[0] é a mais recente
+  const latestVersion = useMemo(() => {
+    if (versions && versions.length > 0) {
+      return versions[0].version
+    }
+    return document.version || '1.0'
+  }, [versions, document.version])
+
+  const getVersionStatusLabel = (status: DocumentVersion['status']): string => {
+    switch (status) {
+      case 'approved':
+        return 'Aprovado'
+      case 'rejected':
+        return 'Rejeitado'
+      case 'draft':
+        return 'Rascunho'
+      default:
+        return status
+    }
+  }
+
   const getVersionStatusIcon = (status: DocumentVersion['status']) => {
     switch (status) {
       case 'approved':
@@ -46,6 +75,19 @@ export function DocumentHistoryModal({
     }
   }
 
+  const getApprovalStatusLabel = (status: DocumentApproval['status']): string => {
+    switch (status) {
+      case 'approved':
+        return 'Aprovado'
+      case 'rejected':
+        return 'Rejeitado'
+      case 'pending':
+        return 'Pendente'
+      default:
+        return status
+    }
+  }
+
   const getApprovalStatusIcon = (status: DocumentApproval['status']) => {
     switch (status) {
       case 'approved':
@@ -56,6 +98,23 @@ export function DocumentHistoryModal({
         return <Clock className="h-4 w-4 text-yellow-500" />
       default:
         return <Clock className="h-4 w-4" />
+    }
+  }
+
+  const getAccessActionLabel = (action: DocumentAccess['action']): string => {
+    switch (action) {
+      case 'viewed':
+        return 'Visualizado'
+      case 'downloaded':
+        return 'Baixado'
+      case 'edited':
+        return 'Editado'
+      case 'approved':
+        return 'Aprovado'
+      case 'rejected':
+        return 'Rejeitado'
+      default:
+        return action
     }
   }
 
@@ -78,7 +137,7 @@ export function DocumentHistoryModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] sm:max-w-none sm:w-[96vw] lg:max-w-[1400px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <History className="h-5 w-5" />
@@ -103,7 +162,7 @@ export function DocumentHistoryModal({
                 </div>
                 <div>
                   <p className="text-sm font-medium">Versão Atual</p>
-                  <p className="text-sm text-muted-foreground">{document.version}</p>
+                  <p className="text-sm text-muted-foreground">{latestVersion}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium">Status</p>
@@ -172,11 +231,19 @@ export function DocumentHistoryModal({
                                 <TableCell className="font-medium">{version.version}</TableCell>
                                 <TableCell>{version.changes}</TableCell>
                                 <TableCell>{version.changedBy}</TableCell>
-                                <TableCell>{new Date(version.changedAt).toLocaleDateString()}</TableCell>
+                                <TableCell>
+                                  {new Date(version.changedAt).toLocaleString('pt-BR', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className="flex items-center space-x-1">
                                     {getVersionStatusIcon(version.status)}
-                                    <span>{version.status}</span>
+                                    <span>{getVersionStatusLabel(version.status)}</span>
                                   </Badge>
                                 </TableCell>
                               </TableRow>
@@ -228,11 +295,19 @@ export function DocumentHistoryModal({
                                 <TableCell className="font-medium">{approval.documentVersion}</TableCell>
                                 <TableCell>{approval.requestedBy}</TableCell>
                                 <TableCell>{approval.approver}</TableCell>
-                                <TableCell>{new Date(approval.requestedAt).toLocaleDateString()}</TableCell>
+                                <TableCell>
+                                  {new Date(approval.requestedAt).toLocaleString('pt-BR', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className="flex items-center space-x-1">
                                     {getApprovalStatusIcon(approval.status)}
-                                    <span>{approval.status}</span>
+                                    <span>{getApprovalStatusLabel(approval.status)}</span>
                                   </Badge>
                                 </TableCell>
                               </TableRow>
@@ -253,6 +328,43 @@ export function DocumentHistoryModal({
                   <CardDescription>
                     Registro de acessos e ações realizadas no documento
                   </CardDescription>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Filtrar:</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className={`text-xs px-2 py-1 rounded border transition-colors ${
+                          accessActionFilter === 'all' 
+                            ? 'bg-primary text-white border-primary dark:bg-primary dark:text-black dark:border-primary' 
+                            : 'bg-transparent text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                        }`}
+                        onClick={() => setAccessActionFilter('all')}
+                      >Todos</button>
+                      <button
+                        className={`text-xs px-2 py-1 rounded border transition-colors ${
+                          accessActionFilter === 'viewed' 
+                            ? 'bg-primary text-white border-primary dark:bg-primary dark:text-black dark:border-primary' 
+                            : 'bg-transparent text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                        }`}
+                        onClick={() => setAccessActionFilter('viewed')}
+                      >Visualizado</button>
+                      <button
+                        className={`text-xs px-2 py-1 rounded border transition-colors ${
+                          accessActionFilter === 'downloaded' 
+                            ? 'bg-primary text-white border-primary dark:bg-primary dark:text-black dark:border-primary' 
+                            : 'bg-transparent text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                        }`}
+                        onClick={() => setAccessActionFilter('downloaded')}
+                      >Baixado</button>
+                      <button
+                        className={`text-xs px-2 py-1 rounded border transition-colors ${
+                          accessActionFilter === 'edited' 
+                            ? 'bg-primary text-white border-primary dark:bg-primary dark:text-black dark:border-primary' 
+                            : 'bg-transparent text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
+                        }`}
+                        onClick={() => setAccessActionFilter('edited')}
+                      >Editado</button>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {loading ? (
@@ -271,23 +383,31 @@ export function DocumentHistoryModal({
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {access.length === 0 ? (
+                          {filteredAccess.length === 0 ? (
                             <TableRow>
                               <TableCell colSpan={4} className="text-center py-8">
                                 Nenhum registro de acesso encontrado
                               </TableCell>
                             </TableRow>
                           ) : (
-                            access.map((accessRecord) => (
+                            filteredAccess.map((accessRecord) => (
                               <TableRow key={accessRecord.id}>
                                 <TableCell className="font-medium">{accessRecord.userName}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className="flex items-center space-x-1">
                                     {getAccessActionIcon(accessRecord.action)}
-                                    <span>{accessRecord.action}</span>
+                                    <span>{getAccessActionLabel(accessRecord.action)}</span>
                                   </Badge>
                                 </TableCell>
-                                <TableCell>{new Date(accessRecord.timestamp).toLocaleString()}</TableCell>
+                                <TableCell>
+                                  {new Date(accessRecord.timestamp).toLocaleString('pt-BR', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </TableCell>
                                 <TableCell className="text-muted-foreground">{accessRecord.ipAddress || '-'}</TableCell>
                               </TableRow>
                             ))

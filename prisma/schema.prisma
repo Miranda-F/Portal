@@ -118,6 +118,7 @@ model Procedure {
   fileUrl       String?  // URL do arquivo PDF
   fileName      String?  // Nome original do arquivo
   fileSize      Int?     // Tamanho do arquivo em bytes
+  deletedAt     DateTime? // Data de exclusão (soft delete)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   

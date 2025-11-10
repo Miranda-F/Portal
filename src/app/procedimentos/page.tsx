@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 import { useDocumentFilters } from '@/hooks/document/use-document-filters'
@@ -8,12 +8,16 @@ import { useDocumentHistory } from '@/hooks/document/use-document-history'
 import { useDocumentManagement } from '@/hooks/document/use-document-management'
 import { useDocumentForm } from '@/hooks/document/use-document-form'
 import { useDocumentActions } from '@/handlers/document-actions'
-import { DocumentTable } from '@/components/document/document-table'
 import { DocumentModal } from '@/components/document/document-modal'
 import { DeleteDocumentModal } from '@/components/document/delete-document-modal'
 import { DocumentHistoryModal } from '@/components/document/document-history-modal'
+import { DocumentPreviewModal } from '@/components/document/document-preview-modal'
+import { RescheduleDocumentModal } from '@/components/procedimentos/reschedule-document-modal'
+import { VerifyFileUploadModal } from '@/components/procedimentos/verify-file-upload-modal'
 import { DocumentSecurity } from '@/lib/security/document-security'
+import { DocumentService } from '@/services/document-service'
 import { Document } from '@/types/document'
+import { ProcedimentosDashboard } from '@/components/procedimentos/procedimentos-dashboard'
 
 export default function ProcedimentosPage() {
   const { user, logout, loading: authLoading } = useAuth()
@@ -26,8 +30,9 @@ export default function ProcedimentosPage() {
     uniqueSectors,
     loading: documentsLoading,
     handleDocumentCreated,
-    handleDocumentUpdated,
-    handleDocumentDeleted
+    handleDocumentUpdated: baseHandleDocumentUpdated,
+    handleDocumentDeleted,
+    fetchDocuments
   } = useDocumentManagement()
   
   // Filters
@@ -43,10 +48,28 @@ export default function ProcedimentosPage() {
     filteredDocuments
   } = useDocumentFilters({ documents })
   
-  // Document history
+  // estados dos modais de documento
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
-  const { versions, approvals, access, loading: historyLoading } = useDocumentHistory(selectedDocument?.id || '')
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false)
+  const { versions, approvals, access, loading: historyLoading, refetch: refetchHistory } = useDocumentHistory(selectedDocument?.id || '')
+  
+  // Wrapper para atualizar também o selectedDocument quando o documento for atualizado
+  const handleDocumentUpdated = useCallback((updatedDocument: Document) => {
+    baseHandleDocumentUpdated(updatedDocument)
+    // Atualizar selectedDocument se for o documento que foi atualizado
+    setSelectedDocument(prev => {
+      if (prev?.id === updatedDocument.id) {
+        // Recarregar histórico após atualização
+        setTimeout(() => {
+          refetchHistory()
+        }, 500)
+        return updatedDocument
+      }
+      return prev
+    })
+  }, [baseHandleDocumentUpdated, refetchHistory])
   
   // Document form handling
   const {
@@ -57,6 +80,8 @@ export default function ProcedimentosPage() {
     isCreateDocumentModalOpen,
     isEditDocumentModalOpen,
     isDeleteDocumentModalOpen,
+    isVerifyFileUploadModalOpen,
+    closeVerifyFileUploadModal,
     openCreateModal,
     openEditModal,
     openDeleteModal,
@@ -65,7 +90,10 @@ export default function ProcedimentosPage() {
     closeDeleteModal,
     handleCreateDocument,
     handleUpdateDocument,
-    handleDeleteDocument
+    handleDeleteDocument,
+    handleConfirmFileUpload,
+    pendingFileUpdate,
+    hasFormChanges
   } = useDocumentForm({
     sectors,
     onDocumentCreated: handleDocumentCreated,
@@ -73,18 +101,19 @@ export default function ProcedimentosPage() {
     onDocumentDeleted: handleDocumentDeleted
   })
   
-  // Document actions
+  // handlers de acoes dos documentos
   const { handleViewDocument, handleDownloadDocument, handleViewHistory } = useDocumentActions(
     setSelectedDocument,
-    setIsHistoryModalOpen
+    setIsHistoryModalOpen,
+    setIsPreviewModalOpen
   )
   
-  // Security: Check rate limiting for document actions
+  // verifica rate limiting pra acoes de documento
   const canPerformAction = (action: string) => {
-    return DocumentSecurity.checkRateLimit(`document_${action}`, 10, 60000) // 10 actions per minute
+    return DocumentSecurity.checkRateLimit(`document_${action}`, 10, 60000) // 10 acoes por minuto
   }
 
-  // Wrapped action handlers with security checks
+  // wrappers dos handlers com verificacao de seguranca
   const handleEditDocument = (document: Document) => {
     if (!canPerformAction('edit')) {
       alert('Muitas tentativas. Por favor, aguarde um momento.')
@@ -108,6 +137,50 @@ export default function ProcedimentosPage() {
     }
     openCreateModal()
   }
+
+  const handleRescheduleDocument = (document: Document) => {
+    if (!canPerformAction('reschedule')) {
+      toast({
+        title: "Atenção",
+        description: "Muitas tentativas. Por favor, aguarde um momento.",
+        variant: "destructive"
+      })
+      return
+    }
+    setSelectedDocument(document)
+    setIsRescheduleModalOpen(true)
+  }
+
+  const handleConfirmReschedule = async (documentId: string, newDate: string) => {
+    try {
+      const result = await DocumentService.rescheduleDocument(documentId, newDate)
+      
+      if (result.success && result.data) {
+        handleDocumentUpdated(result.data)
+        // Garantir que a lista reflita a nova data/status
+        await fetchDocuments()
+        // Recarregar histórico após reaprazamento
+        setTimeout(() => {
+          refetchHistory()
+        }, 500)
+        setIsRescheduleModalOpen(false)
+        
+        toast({
+          title: "Sucesso",
+          description: "Data de vencimento reaprazada com sucesso.",
+        })
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Erro ao reaprazar documento. Tente novamente.",
+          variant: "destructive"
+        })
+        throw new Error(result.error || "Erro ao reaprazar documento")
+      }
+    } catch (error) {
+      throw error
+    }
+  }
   
   if (authLoading) {
     return (
@@ -118,8 +191,9 @@ export default function ProcedimentosPage() {
   }
   
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <DocumentTable
+    <div className="min-h-screen bg-gray-50 dark:bg-black">
+      <ProcedimentosDashboard
+        allDocuments={documents}
         documents={filteredDocuments}
         loading={documentsLoading}
         searchTerm={searchTerm}
@@ -137,9 +211,13 @@ export default function ProcedimentosPage() {
         onViewDocument={handleViewDocument}
         onViewHistory={handleViewHistory}
         onDownloadDocument={handleDownloadDocument}
+        onRescheduleDocument={handleRescheduleDocument}
+        selectedDocument={selectedDocument}
+        setSelectedDocument={setSelectedDocument}
+        onRefreshDocuments={fetchDocuments}
       />
       
-      {/* Create Document Modal */}
+      {/* modal de criacao de documento */}
       <DocumentModal
         isOpen={isCreateDocumentModalOpen}
         onClose={closeCreateModal}
@@ -153,7 +231,7 @@ export default function ProcedimentosPage() {
         isEditing={false}
       />
       
-      {/* Edit Document Modal */}
+      {/* modal de edicao de documento */}
       <DocumentModal
         isOpen={isEditDocumentModalOpen}
         onClose={closeEditModal}
@@ -165,9 +243,10 @@ export default function ProcedimentosPage() {
         onSubmit={handleUpdateDocument}
         isSubmitting={isSavingDocument}
         isEditing={true}
+        hasChanges={hasFormChanges()}
       />
       
-      {/* Delete Document Modal */}
+      {/* modal de exclusao de documento */}
       <DeleteDocumentModal
         isOpen={isDeleteDocumentModalOpen}
         onClose={closeDeleteModal}
@@ -176,7 +255,7 @@ export default function ProcedimentosPage() {
         isDeleting={isDeletingDocument}
       />
       
-      {/* Document History Modal */}
+      {/* modal de historico do documento */}
       <DocumentHistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => {
@@ -188,6 +267,36 @@ export default function ProcedimentosPage() {
         approvals={approvals}
         access={access}
         loading={historyLoading}
+      />
+      
+      {/* modal de preview do documento */}
+      <DocumentPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => {
+          setIsPreviewModalOpen(false)
+          setSelectedDocument(null)
+        }}
+        document={selectedDocument}
+        onDownload={handleDownloadDocument}
+      />
+      
+      {/* modal de reaprazamento */}
+      <RescheduleDocumentModal
+        isOpen={isRescheduleModalOpen}
+        onClose={() => {
+          setIsRescheduleModalOpen(false)
+          setSelectedDocument(null)
+        }}
+        document={selectedDocument}
+        onConfirm={handleConfirmReschedule}
+      />
+      
+      {/* modal de verificação de anexo de arquivo */}
+      <VerifyFileUploadModal
+        isOpen={isVerifyFileUploadModalOpen}
+        onClose={closeVerifyFileUploadModal}
+        fileName={pendingFileUpdate?.formData.file?.name || ''}
+        onConfirm={handleConfirmFileUpload}
       />
     </div>
   )

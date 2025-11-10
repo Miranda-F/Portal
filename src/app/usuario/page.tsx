@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageCropper } from "@/components/image-cropper"
@@ -22,7 +23,6 @@ import { JobsDisplay } from "@/components/usuario/JobsDisplay"
 import { EventsDisplay } from "@/components/usuario/EventsDisplay"
 
 import { ProfileModal } from "@/components/usuario/ProfileModal"
-import { ContentModal } from "@/components/usuario/ContentModal"
 
 
 // Types
@@ -99,16 +99,18 @@ export default function UsuarioPage() {
   const [activeTab, setActiveTab] = useState("procedimentos")
   const [searchTerm, setSearchTerm] = useState("")
   const [viewMode, setViewMode] = useState<"cards" | "list">("cards")
-  const [showContentModal, setShowContentModal] = useState(false)
-  const [selectedProcedure, setSelectedProcedure] = useState<Procedure | null>(null)
+  
+  // Pagination state
+  const [proceduresPage, setProceduresPage] = useState(1)
+  const [jobsPage, setJobsPage] = useState(1)
+  const [eventsPage, setEventsPage] = useState(1)
+  const itemsPerPage = 9 // 3 colunas x 3 linhas em cards
 
   // Filter functions
   const filteredProcedures = procedures.filter(procedure => 
     procedure.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     procedure.content.toLowerCase().includes(searchTerm.toLowerCase())
   )
-
-
 
   const filteredJobs = jobs.filter(job => 
     job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -121,17 +123,33 @@ export default function UsuarioPage() {
     event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     event.location.toLowerCase().includes(searchTerm.toLowerCase())
   )
+  
+  // Pagination functions
+  const getPaginatedData = <T,>(data: T[], page: number, perPage: number) => {
+    const startIndex = (page - 1) * perPage
+    const endIndex = startIndex + perPage
+    return data.slice(startIndex, endIndex)
+  }
+  
+  const getTotalPages = (data: any[]) => Math.max(1, Math.ceil(data.length / itemsPerPage))
+  
+  // Reset pagination when search term or tab changes
+  useEffect(() => {
+    setProceduresPage(1)
+    setJobsPage(1)
+    setEventsPage(1)
+  }, [searchTerm, activeTab])
+  
+  // Paginated data
+  const paginatedProcedures = getPaginatedData(filteredProcedures, proceduresPage, itemsPerPage)
+  const paginatedJobs = getPaginatedData(filteredJobs, jobsPage, itemsPerPage)
+  const paginatedEvents = getPaginatedData(filteredEvents, eventsPage, itemsPerPage)
+  
+  const totalProceduresPages = getTotalPages(filteredProcedures)
+  const totalJobsPages = getTotalPages(filteredJobs)
+  const totalEventsPages = getTotalPages(filteredEvents)
 
   // Modal handlers
-  const openContentModal = (procedure: Procedure) => {
-    setSelectedProcedure(procedure)
-    setShowContentModal(true)
-  }
-
-  const closeContentModal = () => {
-    setShowContentModal(false)
-    setSelectedProcedure(null)
-  }
 
 
 
@@ -220,12 +238,6 @@ export default function UsuarioPage() {
         />
       )}
 
-      {/* Content Viewer Modal */}
-      <ContentModal
-        isOpen={showContentModal}
-        onClose={closeContentModal}
-        selectedProcedure={selectedProcedure}
-      />
 
 
 
@@ -270,32 +282,115 @@ export default function UsuarioPage() {
 
           <TabsContent value="procedimentos" className="space-y-4">
             <ProceduresDisplay
-              procedures={filteredProcedures}
+              procedures={paginatedProcedures}
               viewMode={viewMode}
-              onOpenContentModal={openContentModal}
             />
+            {totalProceduresPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Mostrando {((proceduresPage - 1) * itemsPerPage) + 1} a {Math.min(proceduresPage * itemsPerPage, filteredProcedures.length)} de {filteredProcedures.length} procedimentos
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setProceduresPage(prev => Math.max(1, prev - 1))}
+                    disabled={proceduresPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-2">
+                    Página {proceduresPage} de {totalProceduresPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setProceduresPage(prev => Math.min(totalProceduresPages, prev + 1))}
+                    disabled={proceduresPage === totalProceduresPages}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="vagas" className="space-y-4">
             <JobsDisplay
-              jobs={filteredJobs}
+              jobs={paginatedJobs}
               viewMode={viewMode}
               registeredJobs={registeredJobs}
               loadingActions={loadingActions}
               onRegister={handleRegisterForJob}
               onUnregister={handleUnregisterFromJob}
             />
+            {totalJobsPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Mostrando {((jobsPage - 1) * itemsPerPage) + 1} a {Math.min(jobsPage * itemsPerPage, filteredJobs.length)} de {filteredJobs.length} vagas
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setJobsPage(prev => Math.max(1, prev - 1))}
+                    disabled={jobsPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-2">
+                    Página {jobsPage} de {totalJobsPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setJobsPage(prev => Math.min(totalJobsPages, prev + 1))}
+                    disabled={jobsPage === totalJobsPages}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="eventos" className="space-y-4">
             <EventsDisplay
-              events={filteredEvents}
+              events={paginatedEvents}
               viewMode={viewMode}
               registeredEvents={registeredEvents}
               loadingActions={loadingActions}
               onRegister={handleRegisterForEvent}
               onUnregister={handleUnregisterFromEvent}
             />
+            {totalEventsPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Mostrando {((eventsPage - 1) * itemsPerPage) + 1} a {Math.min(eventsPage * itemsPerPage, filteredEvents.length)} de {filteredEvents.length} eventos
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEventsPage(prev => Math.max(1, prev - 1))}
+                    disabled={eventsPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <span className="text-sm text-muted-foreground px-2">
+                    Página {eventsPage} de {totalEventsPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEventsPage(prev => Math.min(totalEventsPages, prev + 1))}
+                    disabled={eventsPage === totalEventsPages}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
 

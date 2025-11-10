@@ -22,6 +22,7 @@ export function useDocumentForm({
   // Form states
   const [documentForm, setDocumentForm] = useState<DocumentFormData>(defaultDocumentForm)
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
+  const [originalDocumentForm, setOriginalDocumentForm] = useState<DocumentFormData | null>(null) // Valores originais para comparação
   const [isSavingDocument, setIsSavingDocument] = useState(false)
   const [isDeletingDocument, setIsDeletingDocument] = useState(false)
   
@@ -29,10 +30,18 @@ export function useDocumentForm({
   const [isCreateDocumentModalOpen, setIsCreateDocumentModalOpen] = useState(false)
   const [isEditDocumentModalOpen, setIsEditDocumentModalOpen] = useState(false)
   const [isDeleteDocumentModalOpen, setIsDeleteDocumentModalOpen] = useState(false)
+  const [isVerifyFileUploadModalOpen, setIsVerifyFileUploadModalOpen] = useState(false)
+  const [pendingFileUpdate, setPendingFileUpdate] = useState<{ documentId: string; formData: DocumentFormData } | null>(null)
 
   const resetForm = useCallback(() => {
-    setDocumentForm(defaultDocumentForm)
+    // Sempre usar a data atual ao resetar o formulário
+    const today = new Date().toISOString().split('T')[0]
+    setDocumentForm({
+      ...defaultDocumentForm,
+      issueDate: today
+    })
     setSelectedDocument(null)
+    setOriginalDocumentForm(null) // Limpar valores originais
   }, [])
 
   const openCreateModal = useCallback(() => {
@@ -42,16 +51,21 @@ export function useDocumentForm({
 
   const openEditModal = useCallback((document: Document) => {
     setSelectedDocument(document)
-    setDocumentForm({
+    const initialFormData: DocumentFormData = {
       code: document.code,
       title: document.title,
       version: document.version,
       issueDate: document.issueDate,
+      nextReviewDate: document.nextReviewDate,
       responsibleSector: document.responsibleSector,
       type: document.type,
       description: document.description,
-      file: null
-    })
+      file: null, // Sempre começar sem arquivo na edição
+      status: document.status,
+      classification: document.status === 'inactive' ? document.type : undefined
+    }
+    setDocumentForm(initialFormData)
+    setOriginalDocumentForm(initialFormData) // Guardar valores originais para comparação
     setIsEditDocumentModalOpen(true)
   }, [])
 
@@ -107,21 +121,21 @@ export function useDocumentForm({
     }
   }, [documentForm, sectors, onDocumentCreated, closeCreateModal, toast])
 
-  const handleUpdateDocument = useCallback(async () => {
-    if (!selectedDocument) return
-    
+  const performUpdate = useCallback(async (documentId: string, formData: DocumentFormData) => {
     setIsSavingDocument(true)
     
     try {
       const result = await DocumentService.updateDocument(
-        selectedDocument.id, 
-        documentForm, 
+        documentId, 
+        formData, 
         sectors
       )
       
       if (result.success && result.data) {
         onDocumentUpdated?.(result.data)
         closeEditModal()
+        setIsVerifyFileUploadModalOpen(false)
+        setPendingFileUpdate(null)
         
         toast({
           title: "Sucesso",
@@ -143,7 +157,59 @@ export function useDocumentForm({
     } finally {
       setIsSavingDocument(false)
     }
-  }, [selectedDocument, documentForm, sectors, onDocumentUpdated, closeEditModal, toast])
+  }, [sectors, onDocumentUpdated, closeEditModal, toast])
+
+  const handleUpdateDocument = useCallback(async () => {
+    if (!selectedDocument) return
+    
+    // Se há um arquivo anexado na edição, solicitar dupla checagem
+    if (documentForm.file) {
+      setPendingFileUpdate({
+        documentId: selectedDocument.id,
+        formData: documentForm
+      })
+      setIsVerifyFileUploadModalOpen(true)
+      return
+    }
+    
+    // Se não há arquivo, atualizar diretamente
+    await performUpdate(selectedDocument.id, documentForm)
+  }, [selectedDocument, documentForm, performUpdate])
+
+  const handleConfirmFileUpload = useCallback(async () => {
+    if (!pendingFileUpdate) return
+    
+    await performUpdate(pendingFileUpdate.documentId, pendingFileUpdate.formData)
+  }, [pendingFileUpdate, performUpdate])
+
+  const closeVerifyFileUploadModal = useCallback(() => {
+    setIsVerifyFileUploadModalOpen(false)
+    setPendingFileUpdate(null)
+  }, [])
+
+  // Função para verificar se houve alterações no formulário
+  const hasFormChanges = useCallback((): boolean => {
+    if (!originalDocumentForm || !isEditDocumentModalOpen) {
+      return true // Na criação, sempre permite salvar
+    }
+
+    // Normalizar strings para comparação (trim e case-insensitive onde necessário)
+    const normalizeString = (str: string | undefined | null): string => {
+      return (str || '').trim()
+    }
+
+    // Comparar campos editáveis (ignorar versão, data de criação, data de vencimento)
+    const hasChanges = 
+      normalizeString(documentForm.code) !== normalizeString(originalDocumentForm.code) ||
+      normalizeString(documentForm.title) !== normalizeString(originalDocumentForm.title) ||
+      documentForm.type !== originalDocumentForm.type ||
+      normalizeString(documentForm.responsibleSector) !== normalizeString(originalDocumentForm.responsibleSector) ||
+      normalizeString(documentForm.description) !== normalizeString(originalDocumentForm.description) ||
+      documentForm.status !== originalDocumentForm.status ||
+      documentForm.file !== null // Se há um novo arquivo, há mudança
+
+    return hasChanges
+  }, [documentForm, originalDocumentForm, isEditDocumentModalOpen])
 
   const handleDeleteDocument = useCallback(async () => {
     if (!selectedDocument) return
@@ -191,6 +257,8 @@ export function useDocumentForm({
     isCreateDocumentModalOpen,
     isEditDocumentModalOpen,
     isDeleteDocumentModalOpen,
+    isVerifyFileUploadModalOpen,
+    closeVerifyFileUploadModal,
     
     // Actions
     openCreateModal,
@@ -202,6 +270,9 @@ export function useDocumentForm({
     handleCreateDocument,
     handleUpdateDocument,
     handleDeleteDocument,
-    resetForm
+    handleConfirmFileUpload,
+    resetForm,
+    pendingFileUpdate,
+    hasFormChanges
   }
 }
