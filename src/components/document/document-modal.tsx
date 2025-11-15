@@ -18,6 +18,7 @@ interface DocumentModalProps {
   onSubmit: () => void
   isSubmitting: boolean
   isEditing?: boolean
+  hasChanges?: boolean // Indica se há alterações no formulário (apenas para edição)
 }
 
 export function DocumentModal({
@@ -30,8 +31,12 @@ export function DocumentModal({
   sectors,
   onSubmit,
   isSubmitting,
-  isEditing = false
+  isEditing = false,
+  hasChanges = true // Por padrão, permite salvar (para criação)
 }: DocumentModalProps) {
+  // Na edição, desabilitar o botão se não houver mudanças
+  const isSubmitDisabled = isSubmitting || (isEditing && !hasChanges)
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl">
@@ -53,7 +58,7 @@ export function DocumentModal({
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={onSubmit} disabled={isSubmitting}>
+          <Button onClick={onSubmit} disabled={isSubmitDisabled}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isEditing ? 'Atualizar Documento' : 'Criar Documento'}
           </Button>

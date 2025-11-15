@@ -72,6 +72,7 @@ export interface DocumentFormData {
   title: string
   version: string
   issueDate: string
+  nextReviewDate?: string // Data de vencimento/revisão
   responsibleSector: string
   type: Document['type']
   description: string

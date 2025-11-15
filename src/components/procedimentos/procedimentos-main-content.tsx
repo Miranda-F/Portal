@@ -1,39 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState} from 'react'
 import { Document } from '@/types/document'
-import { statusOptions, documentTypes } from '@/constants/document'
 import { useAuth } from '@/hooks/use-auth'
 import { DocumentsSection } from './components/documents-section'
 import { FoldersSection } from './components/folders-section'
 import { AnalyticsSection } from './components/analytics-section'
 import { getInitials } from '@/lib/utils'
 import { 
-  Search, 
-  Plus,
   FileText,
   Eye,
   Edit,
-  Download,
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle,
   LogOut,
   Settings,
   UserCircle,
-  TrendingUp,
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-  ExternalLink,
-  X
+  Calendar,
+  History,
+  Trash2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent} from '@/components/ui/card'
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -41,8 +27,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { getFileIcon, getStatusBadge, getTypeLabel, formatFileSize } from './utils/document-utils'
+import { getStatusBadge, getTypeLabel, formatFileSize, getExpirationStatus, formatDate, getDirectoryFromType, truncateText } from './utils/document-utils'
 import { calculateFolderData } from './utils/folder-utils'
 
 interface ProcedimentosMainContentProps {
@@ -66,6 +59,7 @@ interface ProcedimentosMainContentProps {
   onViewDocument: (document: Document) => void
   onViewHistory: (document: Document) => void
   onDownloadDocument: (document: Document) => void
+  onRescheduleDocument?: (document: Document) => void
   selectedDocument: Document | null
   setSelectedDocument: (document: Document | null) => void
   onRefreshDocuments?: () => void
@@ -77,14 +71,6 @@ export function ProcedimentosMainContent({
   allDocuments,
   documents,
   loading,
-  searchTerm,
-  setSearchTerm,
-  statusFilter,
-  setStatusFilter,
-  typeFilter,
-  setTypeFilter,
-  sectorFilter,
-  setSectorFilter,
   sectors,
   onCreateDocument,
   onEditDocument,
@@ -92,19 +78,16 @@ export function ProcedimentosMainContent({
   onViewDocument,
   onViewHistory,
   onDownloadDocument,
+  onRescheduleDocument,
   selectedDocument,
   setSelectedDocument,
-  onRefreshDocuments
 }: ProcedimentosMainContentProps) {
   const { user, logout } = useAuth()
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage] = useState(1)
   const itemsPerPage = 10
   
-
-  const totalPages = Math.ceil(documents.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const currentDocuments = documents.slice(startIndex, endIndex)
 
   // Calculate real storage data from documents
   const calculateStorageData = () => {
@@ -184,6 +167,9 @@ export function ProcedimentosMainContent({
         onEditDocument={onEditDocument}
         onViewDocument={onViewDocument}
         onDownloadDocument={onDownloadDocument}
+        onRescheduleDocument={onRescheduleDocument}
+        onDeleteDocument={onDeleteDocument}
+        onViewHistory={onViewHistory}
         user={user}
         logout={logout}
       />
@@ -199,6 +185,10 @@ export function ProcedimentosMainContent({
         setSelectedDocument={setSelectedDocument}
         onEditDocument={onEditDocument}
         onViewDocument={onViewDocument}
+        onDownloadDocument={onDownloadDocument}
+        onRescheduleDocument={onRescheduleDocument}
+        onDeleteDocument={onDeleteDocument}
+        onViewHistory={onViewHistory}
         user={user}
         logout={logout}
       />
@@ -224,7 +214,7 @@ export function ProcedimentosMainContent({
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
           <p className="text-gray-600 dark:text-gray-400">Gerencie seus documentos e procedimentos</p>
         </div>
-        <div className="flex items-center space-x-4">
+<h1>        </h1>        <div className="flex items-center space-x-4">
           <div className="bg-gray-100 dark:bg-gray-800 rounded-full p-1 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
             <ThemeToggle />
           </div>
@@ -326,179 +316,196 @@ export function ProcedimentosMainContent({
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Buscar documentos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        
-        <div className="flex gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos Status</SelectItem>
-              {statusOptions.map(status => (
-                <SelectItem key={status.value} value={status.value}>
-                  {status.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos Tipos</SelectItem>
-              {documentTypes.map(type => (
-                <SelectItem key={type.value} value={type.value}>
-                  {type.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Select value={sectorFilter} onValueChange={setSectorFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Setor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos Setores</SelectItem>
-              {sectors.map(sector => (
-                <SelectItem key={sector} value={sector}>
-                  {sector}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Button onClick={onCreateDocument} className="flex items-center space-x-2">
-            <Plus className="h-4 w-4" />
-            <span>Novo</span>
+      {/* Documents Preview Section */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Documentos</h2>
+          <Button 
+            variant="outline" 
+            onClick={() => setActiveSection('documents')}
+            className="flex items-center gap-2"
+          >
+            Ver todos
+            <Eye className="h-4 w-4" />
           </Button>
         </div>
-      </div>
-
-      {/* Recently Added Section */}
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Documentos Recentes</h2>
         <Card className="bg-white dark:bg-[#171717] border-gray-200 dark:border-gray-600">
           <CardContent className="p-0">
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ) : (
-              <div className="divide-y">
-                {currentDocuments.length === 0 ? (
+            ) : documents.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                     Nenhum documento encontrado
                   </div>
                 ) : (
-                  currentDocuments.map((document, index) => (
-                    <div
-                      key={document.id}
-                      className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
-                        selectedDocument?.id === document.id ? 'bg-gray-100 dark:bg-gray-700' : ''
-                      }`}
-                      onClick={() => setSelectedDocument(document)}
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0">
-                          {getFileIcon(document)}
+              <div className="w-full">
+                <table className="w-full border-collapse" style={{ tableLayout: 'auto', width: '100%' }}>
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-800 border-b">
+                      <th className="px-2 py-2 text-left text-xs font-medium" style={{ width: '9%' }}>
+                        CÓDIGO
+                      </th>
+                      <th className="px-2 py-2 text-left text-xs font-medium" style={{ width: '14%' }}>
+                        NOME
+                      </th>
+                      <th className="px-2 py-2 text-left text-xs font-medium" style={{ width: '9%' }}>
+                        AREA
+                      </th>
+                      <th className="px-2 py-2 text-left text-xs font-medium" style={{ width: '11%' }}>
+                        DESCRIÇÃO
+                      </th>
+                      <th className="px-2 py-2 text-left text-xs font-medium" style={{ width: '10%' }}>
+                        CLASSIFICAÇÃO
+                      </th>
+                      <th className="px-4 py-2 text-center text-xs font-medium" style={{ width: '6%' }}>
+                        VERSÃO
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium" style={{ width: '12%' }}>
+                        DIRETÓRIO
+                      </th>
+                      <th className="px-2 py-2 text-center text-xs font-medium" style={{ width: '9%' }}>
+                        VENCIMENTO
+                      </th>
+                      <th className="px-2 py-2 text-center text-xs font-medium" style={{ width: '8%' }}>
+                        STATUS
+                      </th>
+                      <th className="px-2 py-2 text-center text-xs font-medium" style={{ width: '12%' }}>
+                        AÇÕES
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documents.slice(0, 5).map((document) => {
+                      const expirationStatus = getExpirationStatus(document.nextReviewDate || null)
+                      return (
+                        <ContextMenu key={document.id}>
+                          <ContextMenuTrigger asChild>
+                            <tr
+                              className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b ${
+                                selectedDocument?.id === document.id ? 'bg-gray-100 dark:bg-gray-800' : ''
+                              }`}
+                              onClick={() => setSelectedDocument(document)}
+                            >
+                          <td className="font-mono text-xs px-2 py-2 truncate" title={document.code || '—'}>
+                            {document.code || '—'}
+                          </td>
+                          <td className="text-xs px-2 py-2 truncate" title={document.title || '—'}>
+                            {document.title || '—'}
+                          </td>
+                          <td className="text-xs px-2 py-2 truncate" title={document.responsibleSector || '—'}>
+                            {document.responsibleSector || '—'}
+                          </td>
+                          <td className="text-xs px-2 py-2" title={document.description || '—'}>
+                            {truncateText(document.description, 40)}
+                          </td>
+                          <td className="text-xs px-2 py-2 truncate" title={getTypeLabel(document.type)}>
+                            {getTypeLabel(document.type)}
+                          </td>
+                          <td className="text-xs px-4 py-2 text-center">{document.version || '1.0'}</td>
+                          <td className="text-xs px-4 py-2 truncate" title={getDirectoryFromType(document.type)}>
+                            {getDirectoryFromType(document.type)}
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <div className={`px-2 py-1 rounded ${expirationStatus.bgColor} text-center font-medium text-xs whitespace-nowrap inline-block`}>
+                              {document.nextReviewDate ? formatDate(document.nextReviewDate) : '—'}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                              {document.title}
-                            </h3>
-                            <div className="flex items-center space-x-2">
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <div className="flex justify-center">
                               {getStatusBadge(document.status)}
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {formatFileSize(document.fileSize || 0)}
-                              </span>
                             </div>
-                          </div>
-                          <div className="flex items-center justify-between mt-1">
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {document.responsibleSector} • {getTypeLabel(document.type)}
-                            </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {new Date(document.createdAt).toLocaleDateString('pt-BR')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-1">
+                          </td>
+                          <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onViewDocument(document)
-                            }}
+                                className="h-7 w-7 p-0"
+                                onClick={() => onViewDocument(document)}
                             title="Visualizar"
                           >
-                            <Eye className="h-4 w-4" />
+                                <Eye className="h-3.5 w-3.5" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onEditDocument(document)
-                            }}
+                                className="h-7 w-7 p-0"
+                                onClick={() => onEditDocument(document)}
                             title="Editar"
                           >
-                            <Edit className="h-4 w-4" />
+                                <Edit className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+                          </td>
+                        </tr>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-48">
+                            <ContextMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedDocument(document)
+                              }}
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              Detalhes
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            {onRescheduleDocument && (
+                              <ContextMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onRescheduleDocument(document)
+                                }}
+                              >
+                                <Calendar className="h-4 w-4 mr-2" />
+                                Reaprazar
+                              </ContextMenuItem>
+                            )}
+                            <ContextMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onEditDocument(document)
+                              }}
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editar
+                            </ContextMenuItem>
+                            {onViewHistory && (
+                              <ContextMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onViewHistory(document)
+                                }}
+                              >
+                                <History className="h-4 w-4 mr-2" />
+                                Histórico
+                              </ContextMenuItem>
+                            )}
+                            <ContextMenuSeparator />
+                            {onDeleteDocument && (
+                              <ContextMenuItem
+                                variant="destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  onDeleteDocument(document)
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Deletar
+                              </ContextMenuItem>
+                            )}
+                          </ContextMenuContent>
+                        </ContextMenu>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>
         </Card>
-        
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Mostrando {startIndex + 1} a {Math.min(endIndex, documents.length)} de {documents.length} documentos
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                Anterior
-              </Button>
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Página {currentPage} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Próxima
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   )

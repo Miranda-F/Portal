@@ -39,8 +39,9 @@ export function DocumentForm({ formData, setFormData, sectors, isEditing = false
           <Input
             id={isEditing ? "edit-code" : "code"}
             value={formData.code}
-            onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
             placeholder="Ex: PGQ-001"
+            style={{ textTransform: 'uppercase' }}
           />
         </div>
         <div className="space-y-2">
@@ -55,24 +56,64 @@ export function DocumentForm({ formData, setFormData, sectors, isEditing = false
       </div>
       
       <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor={isEditing ? "edit-version" : "version"}>Versão *</Label>
-          <Input
-            id={isEditing ? "edit-version" : "version"}
-            value={formData.version}
-            onChange={(e) => setFormData({ ...formData, version: e.target.value })}
-            placeholder="1.0"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor={isEditing ? "edit-issueDate" : "issueDate"}>Data de Criação *</Label>
-          <Input
-            id={isEditing ? "edit-issueDate" : "issueDate"}
-            type="date"
-            value={formData.issueDate}
-            onChange={(e) => setFormData({ ...formData, issueDate: e.target.value })}
-          />
-        </div>
+        {isEditing ? (
+          <>
+            <div className="space-y-2">
+              <Label>Versão</Label>
+              <Input
+                value={formData.version || '1.0'}
+                disabled
+                className="bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+              />
+              <p className="text-xs text-muted-foreground">
+                A versão é calculada automaticamente baseada no histórico de alterações.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Data de Criação</Label>
+              <Input
+                type="date"
+                value={formData.issueDate}
+                disabled
+                className="bg-gray-100 dark:bg-gray-800 cursor-not-allowed"
+              />
+              <p className="text-xs text-muted-foreground">
+                A data de criação não pode ser alterada.
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-2">
+            <Label htmlFor="version">Versão *</Label>
+            <Input
+              id="version"
+              value={formData.version || '1.0'}
+              onChange={(e) => setFormData({ ...formData, version: e.target.value })}
+              placeholder="1.0"
+            />
+            <p className="text-xs text-muted-foreground">
+              Versão inicial do documento. Será calculada automaticamente após a criação.
+            </p>
+          </div>
+        )}
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor={isEditing ? "edit-nextReviewDate" : "nextReviewDate"}>Data de Vencimento/Revisão *</Label>
+        <Input
+          id={isEditing ? "edit-nextReviewDate" : "nextReviewDate"}
+          type="date"
+          value={formData.nextReviewDate || ''}
+          onChange={(e) => setFormData({ ...formData, nextReviewDate: e.target.value })}
+          min={isEditing ? formData.issueDate : new Date().toISOString().split('T')[0]}
+          disabled={isEditing}
+          className={isEditing ? "bg-gray-100 dark:bg-gray-800 cursor-not-allowed" : undefined}
+        />
+        <p className="text-xs text-muted-foreground">
+          {isEditing 
+            ? 'O vencimento não pode ser alterado na edição. Use "Reaprazar Vencimento" no detalhe do documento.'
+            : 'Se não informada, será calculada automaticamente como 30 dias após a data de criação (hoje).'}
+        </p>
       </div>
       
       <div className="grid gap-4 md:grid-cols-2">
@@ -178,6 +219,7 @@ export function DocumentForm({ formData, setFormData, sectors, isEditing = false
           onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           placeholder="Descrição do documento"
           rows={3}
+          className="resize-none"
         />
       </div>
       

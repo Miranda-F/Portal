@@ -10,7 +10,8 @@ import {
   FileText,
   Calendar,
   User,
-  Tag
+  Tag,
+  Clock
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +24,7 @@ interface ProcedimentosFileDetailsProps {
   onDelete: (document: Document) => void
   onDownload: (document: Document) => void
   onViewHistory: (document: Document) => void
+  onReschedule?: (document: Document) => void
 }
 
 export function ProcedimentosFileDetails({
@@ -31,7 +33,8 @@ export function ProcedimentosFileDetails({
   onEdit,
   onDelete,
   onDownload,
-  onViewHistory
+  onViewHistory,
+  onReschedule
 }: ProcedimentosFileDetailsProps) {
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes'
@@ -201,7 +204,7 @@ export function ProcedimentosFileDetails({
 
 
   return (
-    <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-600 flex flex-col h-full">
+    <div className="w-80 bg-white dark:bg-[#171717] border-l border-gray-200 dark:border-gray-600 flex flex-col h-full">
       {/* Header */}
       <div className="p-6 border-b border-gray-200 dark:border-gray-600">
         <div className="flex items-center justify-between">
@@ -293,6 +296,22 @@ export function ProcedimentosFileDetails({
               <p className="text-sm text-gray-500 dark:text-gray-400">{document.version}</p>
             </div>
           </div>
+          
+          {document.nextReviewDate && (
+            <div className="flex items-center space-x-3">
+              <Clock className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Data de Vencimento/Revisão</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {new Date(document.nextReviewDate).toLocaleDateString('pt-BR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -317,6 +336,18 @@ export function ProcedimentosFileDetails({
               <span>Histórico</span>
             </Button>
           </div>
+          
+          {onReschedule && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onReschedule(document)}
+              className="w-full flex items-center justify-center gap-2"
+            >
+              <Clock className="h-4 w-4" />
+              <span>Reaprazar Vencimento</span>
+            </Button>
+          )}
           
           <Button
             variant="outline"

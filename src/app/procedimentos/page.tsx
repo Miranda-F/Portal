@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
 import { useDocumentFilters } from '@/hooks/document/use-document-filters'
@@ -12,7 +12,10 @@ import { DocumentModal } from '@/components/document/document-modal'
 import { DeleteDocumentModal } from '@/components/document/delete-document-modal'
 import { DocumentHistoryModal } from '@/components/document/document-history-modal'
 import { DocumentPreviewModal } from '@/components/document/document-preview-modal'
+import { RescheduleDocumentModal } from '@/components/procedimentos/reschedule-document-modal'
+import { VerifyFileUploadModal } from '@/components/procedimentos/verify-file-upload-modal'
 import { DocumentSecurity } from '@/lib/security/document-security'
+import { DocumentService } from '@/services/document-service'
 import { Document } from '@/types/document'
 import { ProcedimentosDashboard } from '@/components/procedimentos/procedimentos-dashboard'
 
@@ -27,7 +30,7 @@ export default function ProcedimentosPage() {
     uniqueSectors,
     loading: documentsLoading,
     handleDocumentCreated,
-    handleDocumentUpdated,
+    handleDocumentUpdated: baseHandleDocumentUpdated,
     handleDocumentDeleted,
     fetchDocuments
   } = useDocumentManagement()
@@ -49,7 +52,24 @@ export default function ProcedimentosPage() {
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false)
-  const { versions, approvals, access, loading: historyLoading } = useDocumentHistory(selectedDocument?.id || '')
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false)
+  const { versions, approvals, access, loading: historyLoading, refetch: refetchHistory } = useDocumentHistory(selectedDocument?.id || '')
+  
+  // Wrapper para atualizar também o selectedDocument quando o documento for atualizado
+  const handleDocumentUpdated = useCallback((updatedDocument: Document) => {
+    baseHandleDocumentUpdated(updatedDocument)
+    // Atualizar selectedDocument se for o documento que foi atualizado
+    setSelectedDocument(prev => {
+      if (prev?.id === updatedDocument.id) {
+        // Recarregar histórico após atualização
+        setTimeout(() => {
+          refetchHistory()
+        }, 500)
+        return updatedDocument
+      }
+      return prev
+    })
+  }, [baseHandleDocumentUpdated, refetchHistory])
   
   // Document form handling
   const {
@@ -60,6 +80,8 @@ export default function ProcedimentosPage() {
     isCreateDocumentModalOpen,
     isEditDocumentModalOpen,
     isDeleteDocumentModalOpen,
+    isVerifyFileUploadModalOpen,
+    closeVerifyFileUploadModal,
     openCreateModal,
     openEditModal,
     openDeleteModal,
@@ -68,7 +90,10 @@ export default function ProcedimentosPage() {
     closeDeleteModal,
     handleCreateDocument,
     handleUpdateDocument,
-    handleDeleteDocument
+    handleDeleteDocument,
+    handleConfirmFileUpload,
+    pendingFileUpdate,
+    hasFormChanges
   } = useDocumentForm({
     sectors,
     onDocumentCreated: handleDocumentCreated,
@@ -112,6 +137,50 @@ export default function ProcedimentosPage() {
     }
     openCreateModal()
   }
+
+  const handleRescheduleDocument = (document: Document) => {
+    if (!canPerformAction('reschedule')) {
+      toast({
+        title: "Atenção",
+        description: "Muitas tentativas. Por favor, aguarde um momento.",
+        variant: "destructive"
+      })
+      return
+    }
+    setSelectedDocument(document)
+    setIsRescheduleModalOpen(true)
+  }
+
+  const handleConfirmReschedule = async (documentId: string, newDate: string) => {
+    try {
+      const result = await DocumentService.rescheduleDocument(documentId, newDate)
+      
+      if (result.success && result.data) {
+        handleDocumentUpdated(result.data)
+        // Garantir que a lista reflita a nova data/status
+        await fetchDocuments()
+        // Recarregar histórico após reaprazamento
+        setTimeout(() => {
+          refetchHistory()
+        }, 500)
+        setIsRescheduleModalOpen(false)
+        
+        toast({
+          title: "Sucesso",
+          description: "Data de vencimento reaprazada com sucesso.",
+        })
+      } else {
+        toast({
+          title: "Erro",
+          description: result.error || "Erro ao reaprazar documento. Tente novamente.",
+          variant: "destructive"
+        })
+        throw new Error(result.error || "Erro ao reaprazar documento")
+      }
+    } catch (error) {
+      throw error
+    }
+  }
   
   if (authLoading) {
     return (
@@ -142,6 +211,7 @@ export default function ProcedimentosPage() {
         onViewDocument={handleViewDocument}
         onViewHistory={handleViewHistory}
         onDownloadDocument={handleDownloadDocument}
+        onRescheduleDocument={handleRescheduleDocument}
         selectedDocument={selectedDocument}
         setSelectedDocument={setSelectedDocument}
         onRefreshDocuments={fetchDocuments}
@@ -173,6 +243,7 @@ export default function ProcedimentosPage() {
         onSubmit={handleUpdateDocument}
         isSubmitting={isSavingDocument}
         isEditing={true}
+        hasChanges={hasFormChanges()}
       />
       
       {/* modal de exclusao de documento */}
@@ -207,6 +278,25 @@ export default function ProcedimentosPage() {
         }}
         document={selectedDocument}
         onDownload={handleDownloadDocument}
+      />
+      
+      {/* modal de reaprazamento */}
+      <RescheduleDocumentModal
+        isOpen={isRescheduleModalOpen}
+        onClose={() => {
+          setIsRescheduleModalOpen(false)
+          setSelectedDocument(null)
+        }}
+        document={selectedDocument}
+        onConfirm={handleConfirmReschedule}
+      />
+      
+      {/* modal de verificação de anexo de arquivo */}
+      <VerifyFileUploadModal
+        isOpen={isVerifyFileUploadModalOpen}
+        onClose={closeVerifyFileUploadModal}
+        fileName={pendingFileUpdate?.formData.file?.name || ''}
+        onConfirm={handleConfirmFileUpload}
       />
     </div>
   )

@@ -22,19 +22,21 @@ export function useDocuments({ initialDocuments = [] }: UseDocumentsProps = {}) 
         
         // Transform API data to match the Document interface
         const transformedDocuments = documentsData.map((doc: any) => {
-          const isExpired = doc.expiryDate ? new Date(doc.expiryDate) < new Date() : false
-          // Mapear status do banco para status da interface
-          // IMPORTANTE: expirado tem prioridade sobre qualquer outro status
-          let status: any = 'inactive' // padrão
-          if (isExpired) {
-            status = 'expired'
-          } else if (doc.status === 'PUBLISHED') {
-            status = 'active'
-          } else if (doc.status === 'DRAFT') {
-            status = 'pending'
-          } else if (doc.status === 'ARCHIVED') {
-            // ARCHIVED do backend é tratado como inactive no frontend
-            status = 'inactive'
+          // Mapear status do backend; "pending" não depende de dias.
+          let status: any = 'inactive'
+          if (doc.expiryDate) {
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+            const expiryDate = new Date(doc.expiryDate)
+            expiryDate.setHours(0, 0, 0, 0)
+            if (expiryDate.getTime() < today.getTime()) {
+              status = 'expired'
+            }
+          }
+          if (status !== 'expired') {
+            if (doc.status === 'PUBLISHED') status = 'active'
+            else if (doc.status === 'DRAFT') status = 'pending'
+            else if (doc.status === 'ARCHIVED') status = 'inactive'
           }
           return ({
           id: doc.id,

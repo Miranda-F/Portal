@@ -1,5 +1,6 @@
 import { Document } from '@/types/document'
 import { useToast } from '@/hooks/use-toast'
+import { DocumentService } from '@/services/document-service'
 
 export interface DocumentActionHandlers {
   handleViewDocument: (document: Document) => void
@@ -15,6 +16,8 @@ export function useDocumentActions(
   const { toast } = useToast()
 
   const handleViewDocument = (document: Document) => {
+    // Log de acesso (visualização)
+    DocumentService.logAccess(document.id, 'VIEWED')
     if (document.fileUrl) {
       // valida url antes de abrir por segurança
       try {
@@ -51,6 +54,8 @@ export function useDocumentActions(
   }
 
   const handleDownloadDocument = (doc: Document) => {
+    // Log de acesso (download)
+    DocumentService.logAccess(doc.id, 'DOWNLOADED')
     if (doc.fileUrl) {
       try {
         // valida url antes do download

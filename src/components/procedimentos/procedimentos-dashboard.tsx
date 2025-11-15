@@ -25,6 +25,7 @@ interface ProcedimentosDashboardProps {
   onViewDocument: (document: Document) => void
   onViewHistory: (document: Document) => void
   onDownloadDocument: (document: Document) => void
+  onRescheduleDocument?: (document: Document) => void
   selectedDocument: Document | null
   setSelectedDocument: (document: Document | null) => void
   onRefreshDocuments?: () => void
@@ -49,6 +50,7 @@ export function ProcedimentosDashboard({
   onViewDocument,
   onViewHistory,
   onDownloadDocument,
+  onRescheduleDocument,
   selectedDocument,
   setSelectedDocument,
   onRefreshDocuments
@@ -86,6 +88,7 @@ export function ProcedimentosDashboard({
           onViewDocument={onViewDocument}
           onViewHistory={onViewHistory}
           onDownloadDocument={onDownloadDocument}
+          onRescheduleDocument={onRescheduleDocument}
           selectedDocument={selectedDocument}
           setSelectedDocument={setSelectedDocument}
           onRefreshDocuments={onRefreshDocuments}
@@ -103,6 +106,7 @@ export function ProcedimentosDashboard({
               onDelete={onDeleteDocument}
               onDownload={onDownloadDocument}
               onViewHistory={onViewHistory}
+              onReschedule={onRescheduleDocument}
             />
           )}
         </div>
