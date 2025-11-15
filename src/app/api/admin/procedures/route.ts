@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
           SELECT 
             p.id, p.title, p.content, p.type, p.status, 
             p.documentDate, p.expiryDate, p.fileUrl, p.fileName, p.fileSize,
-            p.createdAt, p.updatedAt, p.createdById, p.sectorId,
+            p.createdAt, p.updatedAt, p.createdById, p.sectorId, p.folderPath,
             u.name as createdByName, u.email as createdByEmail,
             s.name as sectorName
           FROM Procedure p
@@ -151,6 +151,7 @@ export async function GET(request: NextRequest) {
                 fileUrl: p.fileUrl,
                 fileName: p.fileName,
                 fileSize: p.fileSize,
+                folderPath: p.folderPath || null,
                 createdAt: p.createdAt,
                 updatedAt: p.updatedAt,
                 createdById: p.createdById,
@@ -228,6 +229,7 @@ export async function POST(request: NextRequest) {
     const status = formData.get('status') as string
     const sectorId = formData.get('sectorId') as string
     const documentDateStr = formData.get('documentDate') as string
+    const folderPath = formData.get('folderPath') as string | null
     const file = formData.get('file') as File
 
     if (!title || !type) {
@@ -293,6 +295,7 @@ export async function POST(request: NextRequest) {
     if (fileUrl) createData.fileUrl = fileUrl
     if (fileName) createData.fileName = fileName
     if (fileSize !== null) createData.fileSize = fileSize
+    if (folderPath) createData.folderPath = folderPath
 
     try {
       const procedure = await db.procedure.create({

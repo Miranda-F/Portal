@@ -63,6 +63,11 @@ export class DocumentValidator {
       errors.push({ field: 'type', message: 'O tipo do documento é obrigatório.' })
     }
 
+    // Validate folderPath (obrigatório)
+    if (!formData.folderPath || (typeof formData.folderPath === 'string' && formData.folderPath.trim() === '')) {
+      errors.push({ field: 'folderPath', message: 'A pasta é obrigatória.' })
+    }
+
     // Validate description
     if (formData.description && formData.description.length > 5000) {
       errors.push({ field: 'description', message: 'A descrição não pode ter mais de 5000 caracteres.' })

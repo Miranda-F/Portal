@@ -19,7 +19,8 @@ import {
 import { 
   getStatusBadge, 
   getTypeLabel, 
-  getDirectoryFromType, 
+  getDirectoryFromType,
+  getDirectoryFromFolderPath,
   getExpirationStatus, 
   formatDate,
   truncateText
@@ -32,7 +33,7 @@ interface DocumentsSectionProps {
   sectors: string[]
   selectedDocument: Document | null
   setSelectedDocument: (document: Document | null) => void
-  onCreateDocument: () => void
+  onCreateDocument: (initialFolderPath?: string) => void
   onEditDocument: (document: Document) => void
   onViewDocument: (document: Document) => void
   onDownloadDocument: (document: Document) => void
@@ -224,8 +225,8 @@ export function DocumentsSection({
           bValue = b.version || ''
           break
         case 'directory':
-          aValue = getDirectoryFromType(a.type)
-          bValue = getDirectoryFromType(b.type)
+          aValue = getDirectoryFromFolderPath(a)
+          bValue = getDirectoryFromFolderPath(b)
           break
         case 'nextReviewDate':
           aValue = a.nextReviewDate ? new Date(a.nextReviewDate).getTime() : 0
@@ -406,62 +407,62 @@ export function DocumentsSection({
             <div className="w-full">
               <table className="w-full border-collapse" style={{ tableLayout: 'auto', width: '100%' }}>
                   <thead>
-                    <tr className="bg-gray-50 dark:bg-gray-800 border-b">
-                      <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '9%' }} onClick={() => handleSort('code')}>
+                    <tr className="border-b border-border/20 bg-slate-100 dark:bg-slate-900/60">
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer transition-colors hover:bg-primary/5 dark:hover:bg-primary/10" style={{ width: '9%' }} onClick={() => handleSort('code')}>
                         <div className="flex items-center gap-1">
                           CÓDIGO
                           {getSortIcon('code')}
                         </div>
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '14%' }} onClick={() => handleSort('title')}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer transition-colors hover:bg-primary/5 dark:hover:bg-primary/10" style={{ width: '14%' }} onClick={() => handleSort('title')}>
                         <div className="flex items-center gap-1">
                           NOME
                           {getSortIcon('title')}
                         </div>
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '9%' }} onClick={() => handleSort('responsibleSector')}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer transition-colors hover:bg-primary/5 dark:hover:bg-primary/10" style={{ width: '9%' }} onClick={() => handleSort('responsibleSector')}>
                         <div className="flex items-center gap-1">
                           AREA
                           {getSortIcon('responsibleSector')}
                         </div>
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '11%' }} onClick={() => handleSort('description')}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer transition-colors hover:bg-primary/5 dark:hover:bg-primary/10" style={{ width: '11%' }} onClick={() => handleSort('description')}>
                         <div className="flex items-center gap-1">
                           DESCRIÇÃO
                           {getSortIcon('description')}
                         </div>
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '10%' }} onClick={() => handleSort('type')}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer transition-colors hover:bg-primary/5 dark:hover:bg-primary/10" style={{ width: '10%' }} onClick={() => handleSort('type')}>
                         <div className="flex items-center gap-1">
                           CLASSIFICAÇÃO
                           {getSortIcon('type')}
                         </div>
                       </th>
-                      <th className="px-4 py-2 text-center text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '6%' }} onClick={() => handleSort('version')}>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer transition-colors hover:bg-primary/5 dark:hover:bg-primary/10" style={{ width: '6%' }} onClick={() => handleSort('version')}>
                         <div className="flex items-center justify-center gap-1">
                           VERSÃO
                           {getSortIcon('version')}
                         </div>
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '12%' }} onClick={() => handleSort('directory')}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer transition-colors hover:bg-primary/5 dark:hover:bg-primary/10" style={{ width: '12%' }} onClick={() => handleSort('directory')}>
                         <div className="flex items-center gap-1">
                           DIRETÓRIO
                           {getSortIcon('directory')}
                         </div>
                       </th>
-                      <th className="px-2 py-2 text-center text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '9%' }} onClick={() => handleSort('nextReviewDate')}>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer transition-colors hover:bg-primary/5 dark:hover:bg-primary/10" style={{ width: '9%' }} onClick={() => handleSort('nextReviewDate')}>
                         <div className="flex items-center justify-center gap-1">
                           VENCIMENTO
                           {getSortIcon('nextReviewDate')}
                         </div>
                       </th>
-                      <th className="px-2 py-2 text-center text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '8%' }} onClick={() => handleSort('status')}>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-600 dark:text-gray-300 cursor-pointer transition-colors hover:bg-primary/5 dark:hover:bg-primary/10" style={{ width: '8%' }} onClick={() => handleSort('status')}>
                         <div className="flex items-center justify-center gap-1">
                           STATUS
                           {getSortIcon('status')}
                         </div>
                       </th>
-                      <th className="px-2 py-2 text-center text-xs font-medium" style={{ width: '12%' }}>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '12%' }}>
                         AÇÕES
                       </th>
                     </tr>
@@ -473,41 +474,41 @@ export function DocumentsSection({
                         <ContextMenu key={document.id}>
                           <ContextMenuTrigger asChild>
                             <tr
-                              className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b ${
-                                selectedDocument?.id === document.id ? 'bg-gray-100 dark:bg-gray-800' : ''
+                              className={`cursor-pointer border-b border-border/20 last:border-b-0 transition-colors hover:bg-primary/5 dark:hover:bg-primary/10 ${
+                                selectedDocument?.id === document.id ? 'bg-primary/10 dark:bg-primary/20' : ''
                               }`}
                               onClick={() => setSelectedDocument(document)}
                             >
-                          <td className="font-mono text-xs px-2 py-2 truncate" title={document.code || '—'}>
+                          <td className="font-mono text-xs px-3 py-2 truncate" title={document.code || '—'}>
                             {document.code || '—'}
                           </td>
-                          <td className="text-xs px-2 py-2 truncate" title={document.title || '—'}>
+                          <td className="text-xs px-3 py-2 truncate" title={document.title || '—'}>
                             {document.title || '—'}
                           </td>
-                          <td className="text-xs px-2 py-2 truncate" title={document.responsibleSector || '—'}>
+                          <td className="text-xs px-3 py-2 truncate" title={document.responsibleSector || '—'}>
                             {document.responsibleSector || '—'}
                           </td>
-                          <td className="text-xs px-2 py-2" title={document.description || '—'}>
+                          <td className="text-xs px-3 py-2" title={document.description || '—'}>
                             {truncateText(document.description, 40)}
                           </td>
-                          <td className="text-xs px-2 py-2 truncate" title={getTypeLabel(document.type)}>
+                          <td className="text-xs px-3 py-2 truncate" title={getTypeLabel(document.type)}>
                             {getTypeLabel(document.type)}
                           </td>
-                          <td className="text-xs px-4 py-2 text-center">{document.version || '1.0'}</td>
-                          <td className="text-xs px-4 py-2 truncate" title={getDirectoryFromType(document.type)}>
-                            {getDirectoryFromType(document.type)}
+                          <td className="text-xs px-3 py-2 text-center">{document.version || '1.0'}</td>
+                          <td className="text-xs px-3 py-2 truncate" title={getDirectoryFromFolderPath(document)}>
+                            {getDirectoryFromFolderPath(document)}
                           </td>
-                          <td className="px-2 py-2 text-center">
+                          <td className="px-3 py-2 text-center">
                             <div className={`px-2 py-1 rounded ${expirationStatus.bgColor} text-center font-medium text-xs whitespace-nowrap inline-block`}>
                               {document.nextReviewDate ? formatDate(document.nextReviewDate) : '—'}
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center">
+                          <td className="px-3 py-2 text-center">
                             <div className="flex justify-center">
                               {getStatusBadge(document.status)}
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1">
                               <Button
                                 variant="ghost"

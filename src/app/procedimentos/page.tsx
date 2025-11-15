@@ -93,7 +93,8 @@ export default function ProcedimentosPage() {
     handleDeleteDocument,
     handleConfirmFileUpload,
     pendingFileUpdate,
-    hasFormChanges
+    hasFormChanges,
+    selectedDocument: selectedDocumentForModal
   } = useDocumentForm({
     sectors,
     onDocumentCreated: handleDocumentCreated,
@@ -130,12 +131,12 @@ export default function ProcedimentosPage() {
     openDeleteModal(document)
   }
 
-  const handleCreateNewDocument = () => {
+  const handleCreateNewDocument = (initialFolderPath?: string) => {
     if (!canPerformAction('create')) {
       alert('Muitas tentativas. Por favor, aguarde um momento.')
       return
     }
-    openCreateModal()
+    openCreateModal(initialFolderPath)
   }
 
   const handleRescheduleDocument = (document: Document) => {
@@ -250,7 +251,7 @@ export default function ProcedimentosPage() {
       <DeleteDocumentModal
         isOpen={isDeleteDocumentModalOpen}
         onClose={closeDeleteModal}
-        document={selectedDocument}
+        document={selectedDocumentForModal}
         onConfirm={handleDeleteDocument}
         isDeleting={isDeletingDocument}
       />

@@ -29,9 +29,10 @@ export const defaultDocumentForm = {
   version: "1.0",
   issueDate: new Date().toISOString().split('T')[0],
   responsibleSector: "",
-  type: "procedure" as DocumentType,
+  type: "" as DocumentType | "",
   description: "",
-  file: null as File | null
+  file: null as File | null,
+  folderPath: undefined as string | undefined
 }
 
 export const defaultVersionForm = {
