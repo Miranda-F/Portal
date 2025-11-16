@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { FileUp, X } from "lucide-react"
+import { FileUp, X, Folder } from "lucide-react"
 import { DocumentFormData, Sector } from '@/types/document'
 import { documentTypes, statusOptions } from '@/constants/document'
 
@@ -120,12 +120,39 @@ export function DocumentForm({ formData, setFormData, sectors, isEditing = false
         <div className="space-y-2">
           <Label htmlFor={isEditing ? "edit-type" : "type"}>Tipo *</Label>
           <Select 
-            value={formData.type} 
-            onValueChange={(value) => setFormData({ ...formData, type: value as DocumentFormData['type'] })}
+            value={formData.type || ''} 
+            onValueChange={(value) => {
+              const newType = value as DocumentFormData['type']
+              // Mapear tipo para folderPath automaticamente
+              const typeToFolderPath: Record<string, string | undefined> = {
+                'form': 'Root/Gestão da Qualidade/Formulários',
+                'instruction': 'Root/Gestão da Qualidade/Instrução Técnica',
+                'procedure': 'Root/Gestão da Qualidade/Procedimentos',
+                'policy': 'Root/Políticas',
+                'manual': 'Root/Manuais',
+                'record': 'Root/Registros',
+                'other': undefined // Não preencher automaticamente para 'other'
+              }
+              // Preencher folderPath automaticamente quando o tipo mudar
+              // Se não estiver editando, sempre preencher automaticamente
+              // Se estiver editando, só preencher se folderPath estiver vazio
+              if (!isEditing) {
+                // Sempre preencher automaticamente na criação
+                const folderPath = typeToFolderPath[newType]
+                setFormData({ ...formData, type: newType, folderPath: folderPath ?? undefined })
+              } else {
+                // Na edição, só atualizar se folderPath estiver vazio
+                if (!formData.folderPath && typeToFolderPath[newType]) {
+                  setFormData({ ...formData, type: newType, folderPath: typeToFolderPath[newType] })
+                } else {
+                  setFormData({ ...formData, type: newType })
+                }
+              }
+            }}
             disabled={showClassificationField}
           >
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="--- Selecione o tipo ---" />
             </SelectTrigger>
             <SelectContent>
               {documentTypes.map(type => (
@@ -221,6 +248,79 @@ export function DocumentForm({ formData, setFormData, sectors, isEditing = false
           rows={3}
           className="resize-none"
         />
+      </div>
+      
+      <div className="space-y-2">
+        <Label htmlFor={isEditing ? "edit-folderPath" : "folderPath"}>Pasta *</Label>
+        <Select 
+          value={formData.folderPath || ''} 
+          onValueChange={(value) => setFormData({ ...formData, folderPath: value || undefined })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="--- Selecione uma pasta ---" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Root/Gestão da Qualidade/Formulários">
+              <Folder className="w-4 h-4" />
+              Formulários
+            </SelectItem>
+            <SelectItem value="Root/Gestão da Qualidade/Instrução Técnica">
+              <Folder className="w-4 h-4" />
+              Instrução Técnica
+            </SelectItem>
+            <SelectItem value="Root/Gestão da Qualidade/Procedimentos">
+              <Folder className="w-4 h-4" />
+              Procedimentos
+            </SelectItem>
+            <SelectItem value="Root/Políticas">
+              <Folder className="w-4 h-4" />
+              Políticas
+            </SelectItem>
+            <SelectItem value="Root/Manuais">
+              <Folder className="w-4 h-4" />
+              Manuais
+            </SelectItem>
+            <SelectItem value="Root/Registros">
+              <Folder className="w-4 h-4" />
+              Registros
+            </SelectItem>
+            <SelectItem value="Root/Gestão da Qualidade/Modelo de Doc">
+              <Folder className="w-4 h-4" />
+              Modelo de Doc
+            </SelectItem>
+            <SelectItem value="Root/Gestão da Qualidade/Normas">
+              <Folder className="w-4 h-4" />
+              Normas
+            </SelectItem>
+            <SelectItem value="Root/Gestão da Qualidade/Treinamento">
+              <Folder className="w-4 h-4" />
+              Treinamento
+            </SelectItem>
+            <SelectItem value="Root/Gestão da Qualidade/Meio Ambiente">
+              <Folder className="w-4 h-4" />
+              Meio Ambiente
+            </SelectItem>
+            <SelectItem value="Root/Gestão da Qualidade/Produção">
+              <Folder className="w-4 h-4" />
+              Produção
+            </SelectItem>
+            <SelectItem value="Root/Gestão da Qualidade/Recursos Humanos">
+              <Folder className="w-4 h-4" />
+              Recursos Humanos
+            </SelectItem>
+            <SelectItem value="Root/Gestão da Qualidade/Segurança do Trabalho">
+              <Folder className="w-4 h-4" />
+              Segurança do Trabalho
+            </SelectItem>
+            <SelectItem value="Root/Gestão da Qualidade/SGI">
+              <Folder className="w-4 h-4" />
+              SGI
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          A pasta será preenchida automaticamente quando você selecionar o tipo. Campo obrigatório.
+        </p>
       </div>
       
       <div className="space-y-2">

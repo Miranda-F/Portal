@@ -159,23 +159,23 @@ export function DocumentPreviewModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center"
       onClick={handleClose}
     >
       <div 
-        className="w-screen h-screen bg-white flex flex-col"
+        className="w-screen h-screen bg-white dark:bg-[#0f0f0f] text-gray-900 dark:text-gray-100 flex flex-col"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="preview-title"
       >
         {/* header bem clean so com o essencial */}
-        <div className="flex-shrink-0 bg-white border-b px-4 py-2 flex items-center justify-between">
+        <div className="flex-shrink-0 bg-white dark:bg-[#0f0f0f] border-b border-border/40 px-4 py-2 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <FileText className="h-5 w-5 text-primary" />
             <div>
-              <h3 id="preview-title" className="font-semibold text-sm">{document.title}</h3>
-              <p className="text-xs text-muted-foreground">
+              <h3 id="preview-title" className="font-semibold text-sm text-gray-900 dark:text-gray-100">{document.title}</h3>
+              <p className="text-xs text-muted-foreground dark:text-gray-400">
                 {document.code} | v{document.version}
               </p>
             </div>
@@ -186,13 +186,18 @@ export function DocumentPreviewModal({
                 variant="ghost"
                 size="sm"
                 onClick={handleDownload}
-                className="flex items-center space-x-1 h-8"
+                className="flex items-center space-x-1 h-8 text-gray-700 dark:text-gray-200 hover:bg-primary/10 dark:hover:bg-primary/20"
               >
                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Download</span>
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={handleClose} className="h-8 w-8 p-0">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleClose} 
+              className="h-8 w-8 p-0 text-gray-700 dark:text-gray-200 hover:bg-primary/10 dark:hover:bg-primary/20"
+            >
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -300,9 +305,7 @@ export function DocumentPreviewModal({
                         text-decoration: underline;
                       }
                     `}</style>
-                    <div 
-                      className="h-full w-full overflow-auto bg-gray-100"
-                    >
+                    <div className="h-full w-full overflow-auto bg-slate-100 dark:bg-slate-900">
                       <div 
                         dangerouslySetInnerHTML={{ __html: docxHtml }} 
                         className="docx-preview-container"
@@ -327,7 +330,7 @@ export function DocumentPreviewModal({
                 )
               ) : ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(document.fileType?.toLowerCase() || '') ? (
                 // imagem centralizada com zoom automático
-                <div className="h-full w-full flex items-center justify-center bg-gray-50">
+                <div className="h-full w-full flex items-center justify-center bg-slate-100 dark:bg-slate-900">
                   <img
                     key={previewKey}
                     src={document.fileUrl}

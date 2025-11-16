@@ -44,8 +44,15 @@ export function useDocumentForm({
     setOriginalDocumentForm(null) // Limpar valores originais
   }, [])
 
-  const openCreateModal = useCallback(() => {
+  const openCreateModal = useCallback((initialFolderPath?: string) => {
     resetForm()
+    // Se uma pasta inicial foi fornecida, pré-selecionar no formulário
+    if (initialFolderPath) {
+      setDocumentForm(prev => ({
+        ...prev,
+        folderPath: initialFolderPath
+      }))
+    }
     setIsCreateDocumentModalOpen(true)
   }, [resetForm])
 
@@ -62,7 +69,8 @@ export function useDocumentForm({
       description: document.description,
       file: null, // Sempre começar sem arquivo na edição
       status: document.status,
-      classification: document.status === 'inactive' ? document.type : undefined
+      classification: document.status === 'inactive' ? document.type : undefined,
+      folderPath: document.folderPath || undefined
     }
     setDocumentForm(initialFormData)
     setOriginalDocumentForm(initialFormData) // Guardar valores originais para comparação
@@ -206,6 +214,7 @@ export function useDocumentForm({
       normalizeString(documentForm.responsibleSector) !== normalizeString(originalDocumentForm.responsibleSector) ||
       normalizeString(documentForm.description) !== normalizeString(originalDocumentForm.description) ||
       documentForm.status !== originalDocumentForm.status ||
+      normalizeString(documentForm.folderPath) !== normalizeString(originalDocumentForm.folderPath) ||
       documentForm.file !== null // Se há um novo arquivo, há mudança
 
     return hasChanges

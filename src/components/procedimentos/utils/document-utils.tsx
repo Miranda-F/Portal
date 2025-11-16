@@ -152,6 +152,22 @@ export const getDirectoryFromType = (type: Document['type']): string => {
   return directoryMap[type] || 'Outros'
 }
 
+/**
+ * Retorna o nome da pasta baseado no folderPath do documento
+ * Se não houver folderPath, retorna o diretório baseado no tipo
+ */
+export const getDirectoryFromFolderPath = (document: Document): string => {
+  // Se o documento tem folderPath, extrair o nome da pasta do caminho
+  if (document.folderPath) {
+    const pathParts = document.folderPath.split('/').filter(Boolean)
+    // Retornar o último elemento do caminho (nome da pasta)
+    return pathParts[pathParts.length - 1] || document.folderPath
+  }
+  
+  // Se não tem folderPath, usar o diretório baseado no tipo (fallback)
+  return getDirectoryFromType(document.type)
+}
+
 export const getExpirationStatus = (expiryDate: string | null): { 
   status: 'valid' | 'warning' | 'expired', 
   daysUntilExpiry: number,

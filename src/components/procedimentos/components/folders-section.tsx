@@ -1,19 +1,33 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Document } from '@/types/document'
-import { Search, Eye, Edit, Download, Calendar, History, Trash2, FileText, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Search, Plus, Eye, Edit, Download, Calendar, History, Trash2, FileText, ArrowUpDown, ArrowUp, ArrowDown, Move, Ban, Folder } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import { FolderCreateModal } from './folder-create-modal'
+import { FolderRenameModal } from './folder-rename-modal'
+import { FolderDeleteModal } from './folder-delete-modal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import { CommonHeader } from './common-header'
+import { FoldersTree } from './folders-tree'
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { 
   getFileIcon, 
   getStatusBadge, 
   getTypeLabel, 
   formatFileSize, 
   getDirectoryFromType, 
+  getDirectoryFromFolderPath,
   getExpirationStatus, 
   formatDate,
   truncateText
@@ -27,18 +41,24 @@ import {
 } from '@/components/ui/context-menu'
 import { calculateFolderData } from '../utils/folder-utils'
 import { exportDocuments } from '../utils/export-utils'
+import { getDocumentsInFolder, getDocumentsByType } from '../utils/folder-structure'
+import { useFolderActions } from '@/hooks/folders/use-folder-actions'
+import { useDragDrop } from '@/hooks/folders/use-drag-drop'
+import { FoldersDragIndicator } from './folders-drag-indicator'
 
 interface FoldersSectionProps {
   allDocuments: Document[]
   loading: boolean
   selectedDocument: Document | null
   setSelectedDocument: (document: Document | null) => void
+  onCreateDocument: (initialFolderPath?: string) => void
   onEditDocument: (document: Document) => void
   onViewDocument: (document: Document) => void
   onDownloadDocument?: (document: Document) => void
   onRescheduleDocument?: (document: Document) => void
   onDeleteDocument?: (document: Document) => void
   onViewHistory?: (document: Document) => void
+  onRefreshDocuments?: () => void
   user: {
     name?: string | null
     email?: string | null
@@ -55,18 +75,34 @@ export function FoldersSection({
   loading,
   selectedDocument,
   setSelectedDocument,
+  onCreateDocument,
   onEditDocument,
   onViewDocument,
   onDownloadDocument,
   onRescheduleDocument,
   onDeleteDocument,
   onViewHistory,
+  onRefreshDocuments,
   user,
   logout
 }: FoldersSectionProps) {
   const itemsPerPage = 50
   
+  // Função auxiliar para obter o folderPath padrão de um tipo
+  const getDefaultFolderPathForType = (type: string): string | undefined => {
+    const typeToDefaultFolderPath: Record<string, string> = {
+      'form': 'Root/Gestão da Qualidade/Formulários',
+      'instruction': 'Root/Gestão da Qualidade/Instrução Técnica',
+      'procedure': 'Root/Gestão da Qualidade/Procedimentos',
+      'policy': 'Root/Políticas',
+      'manual': 'Root/Manuais',
+      'record': 'Root/Registros',
+    }
+    return typeToDefaultFolderPath[type]
+  }
+  
   // Estados locais de filtros para a seção "folders"
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null)
   const [selectedFolderType, setSelectedFolderType] = useState<string | null>(null)
   const [folderSearch, setFolderSearch] = useState('')
   const [folderDateFrom, setFolderDateFrom] = useState<string>('')
@@ -76,7 +112,23 @@ export function FoldersSection({
   const [sortField, setSortField] = useState<SortField>('code')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   
-  useEffect(() => { setFolderPage(1) }, [selectedFolderType, folderSearch, folderDateFrom, folderDateTo, folderAuthorFilter])
+  useEffect(() => { setFolderPage(1) }, [selectedFolderPath, selectedFolderType, folderSearch, folderDateFrom, folderDateTo, folderAuthorFilter])
+  
+  // Handler para seleção de pasta
+  const handleSelectFolder = (folderPath: string | null, type?: string) => {
+    // Se tem type, usar apenas o type (priorizar tipo de documento)
+    // Se não tem type mas tem folderPath, usar o folderPath
+    if (type) {
+      setSelectedFolderType(type)
+      setSelectedFolderPath(null) // Limpar folderPath quando filtrar por tipo
+    } else if (folderPath) {
+      setSelectedFolderPath(folderPath)
+      setSelectedFolderType(null) // Limpar type quando filtrar por pasta
+    } else {
+      setSelectedFolderPath(null)
+      setSelectedFolderType(null)
+    }
+  }
   
   // Função de ordenação
   const handleSort = (field: SortField) => {
@@ -110,17 +162,49 @@ export function FoldersSection({
   
   const folders = calculateFolderData(allDocuments)
   const authorOptions = Array.from(new Set(allDocuments.map(d => d.createdBy).filter(Boolean))) as string[]
+  const { toast } = useToast()
+
+  // Estado para armazenar pastas criadas vazias (que ainda não têm documentos)
+  const [emptyCreatedFolders, setEmptyCreatedFolders] = useState<Set<string>>(new Set())
+
+  // Hook para ações de pastas
+  const folderActions = useFolderActions(
+    selectedFolderPath,
+    setSelectedFolderPath,
+    setSelectedFolderType,
+    emptyCreatedFolders,
+    setEmptyCreatedFolders
+  )
+
+  // Hook para drag and drop
+  const dragDrop = useDragDrop(
+    selectedFolderPath,
+    setSelectedFolderPath,
+    setSelectedFolderType,
+    emptyCreatedFolders,
+    setEmptyCreatedFolders,
+    onRefreshDocuments
+  )
+
 
   const handleExportFolders = async () => {
     try {
-      if (!selectedFolderType) {
+      if (!selectedFolderPath && !selectedFolderType) {
         alert('Selecione uma pasta primeiro.')
         return
       }
 
       // Aplicar todos os filtros da seção folders
       let filteredDocs = allDocuments
-        .filter(d => d.type === (selectedFolderType as any))
+      
+      // Priorizar tipo de documento sobre folderPath
+      if (selectedFolderType) {
+        filteredDocs = getDocumentsByType(filteredDocs, selectedFolderType)
+      } else if (selectedFolderPath) {
+        filteredDocs = getDocumentsInFolder(filteredDocs, selectedFolderPath)
+      }
+      
+      filteredDocs = filteredDocs
         .filter(d => {
           const term = folderSearch.trim().toLowerCase()
           if (!term) return true
@@ -143,64 +227,189 @@ export function FoldersSection({
         })
         .filter(d => !folderAuthorFilter || (d.createdBy || '') === folderAuthorFilter)
 
-      const folderName = getTypeLabel(selectedFolderType as any).replace(/\s+/g, '_').toLowerCase()
+      const folderName = selectedFolderPath 
+        ? selectedFolderPath.split('/').pop()?.replace(/\s+/g, '_').toLowerCase() || 'documentos'
+        : getTypeLabel(selectedFolderType as any).replace(/\s+/g, '_').toLowerCase()
       await exportDocuments(filteredDocs, `documentos_${folderName}`)
     } catch (e) {
       console.error('Erro ao exportar arquivos', e)
       alert('Erro ao exportar arquivos. Tente novamente.')
     }
   }
+  
+  // Obter documentos filtrados por pasta
+  const getFilteredDocuments = () => {
+    let base: Document[] = []
+    
+    // Priorizar tipo de documento sobre folderPath
+    // Se tem tipo, filtrar por tipo (todos os documentos desse tipo, independente do folderPath)
+    if (selectedFolderType) {
+      base = getDocumentsByType(allDocuments, selectedFolderType)
+    } else if (selectedFolderPath) {
+      // Se tem apenas folderPath (sem type), filtrar por caminho
+      base = getDocumentsInFolder(allDocuments, selectedFolderPath)
+    } else {
+      return []
+    }
+    
+    // Aplicar outros filtros
+    base = base
+      .filter(d => {
+        const term = folderSearch.trim().toLowerCase()
+        if (!term) return true
+        const hay = `${d.title || ''} ${d.responsibleSector || ''} ${d.description || ''}`.toLowerCase()
+        return hay.includes(term)
+      })
+      .filter(d => {
+        if (!folderDateFrom && !folderDateTo) return true
+        const created = new Date(d.createdAt)
+        if (folderDateFrom) {
+          const from = new Date(folderDateFrom)
+          if (created < from) return false
+        }
+        if (folderDateTo) {
+          const to = new Date(folderDateTo)
+          to.setHours(23,59,59,999)
+          if (created > to) return false
+        }
+        return true
+      })
+      .filter(d => !folderAuthorFilter || (d.createdBy || '') === folderAuthorFilter)
+    
+    // Aplicar ordenação
+    if (sortField && sortDirection) {
+      base = [...base].sort((a, b) => {
+        let aVal: any = a[sortField]
+        let bVal: any = b[sortField]
+        
+        if (sortField === 'nextReviewDate') {
+          aVal = a.nextReviewDate ? new Date(a.nextReviewDate).getTime() : 0
+          bVal = b.nextReviewDate ? new Date(b.nextReviewDate).getTime() : 0
+        } else if (sortField === 'directory') {
+          aVal = getDirectoryFromFolderPath(a)
+          bVal = getDirectoryFromFolderPath(b)
+        } else if (sortField === 'type') {
+          aVal = getTypeLabel(a.type)
+          bVal = getTypeLabel(b.type)
+        }
+        
+        if (aVal === null || aVal === undefined) aVal = ''
+        if (bVal === null || bVal === undefined) bVal = ''
+        
+        if (typeof aVal === 'string') {
+          aVal = aVal.toLowerCase()
+          bVal = bVal.toLowerCase()
+        }
+        
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
+        return 0
+      })
+    }
+    
+    return base
+  }
 
   return (
-    <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-      <CommonHeader
-        title="Pastas"
-        description="Acesse os documentos por categoria"
-        user={user}
-        logout={logout}
-      />
+    <div className="flex-1 flex overflow-hidden h-full">
+      {/* Sidebar com árvore de pastas */}
+      <FoldersTree
+        allDocuments={allDocuments}
+        selectedFolderPath={selectedFolderPath}
+        selectedFolderType={selectedFolderType}
+        onSelectFolder={handleSelectFolder}
+            onCreateFolder={folderActions.handleCreateFolder}
+            onRenameFolder={folderActions.handleRenameFolder}
+            onDeleteFolder={folderActions.handleDeleteFolder}
+            onMoveFolder={dragDrop.handleMoveFolder}
+            emptyCreatedFolders={emptyCreatedFolders}
+            draggingItem={dragDrop.draggingItem}
+            dragOverFolder={dragDrop.dragOverFolder}
+            setDragOverFolder={dragDrop.setDragOverFolder}
+            onDropOnFolder={dragDrop.handleDropOnFolder}
+          />
 
-      {/* Folders List (estilo explorador) */}
-      <Card className="bg-white dark:bg-[#171717] border-gray-200 dark:border-gray-700">
-        <CardContent className="p-0">
-          <div className="divide-y divide-gray-200 dark:divide-gray-800">
-            {folders.map((folder, index) => {
-              const Icon = folder.icon
-              return (
-                <div
-                  key={index}
-                  onClick={() => { setSelectedFolderType(folder.type as string) }}
-                  className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 cursor-pointer"
-                >
-                  <div className={`w-10 h-10 ${folder.bg} rounded-lg flex items-center justify-center`}>
-                    <Icon className={`w-5 h-5 ${folder.text}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{folder.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Categoria</p>
-                  </div>
-                  <span className={"text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200"}>{folder.count} arquivos</span>
-                </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Conteúdo principal */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <div className="flex-shrink-0 p-6 pb-0">
+          <CommonHeader
+            title="Pastas"
+            description="Acesse os documentos por categoria"
+            user={user}
+            logout={logout}
+          />
+        </div>
 
-      {/* Lista de documentos filtrada pela pasta selecionada */}
-      {selectedFolderType && (
+        {/* Lista de documentos filtrada pela pasta selecionada */}
+        <div className="flex-1 overflow-y-auto p-6 pt-4">
+        {(selectedFolderPath || selectedFolderType) ? (
         <div className="space-y-3">
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              {(() => {
+                const path = selectedFolderPath || (selectedFolderType ? getDefaultFolderPathForType(selectedFolderType) : '')
+                if (!path) return null
+                
+                const pathParts = path.split('/').filter(Boolean)
+                return pathParts.map((part, index) => {
+                  const isLast = index === pathParts.length - 1
+                  const pathToHere = pathParts.slice(0, index + 1).join('/')
+                  
+                  return (
+                    <React.Fragment key={pathToHere}>
+                      <BreadcrumbItem>
+                        {isLast ? (
+                          <BreadcrumbPage>{part}</BreadcrumbPage>
+                        ) : (
+                          <BreadcrumbLink
+                            onClick={() => {
+                              if (pathToHere.startsWith('Root/')) {
+                                setSelectedFolderPath(pathToHere)
+                                setSelectedFolderType(null)
+                              }
+                            }}
+                            className="cursor-pointer hover:underline"
+                          >
+                            {part}
+                          </BreadcrumbLink>
+                        )}
+                      </BreadcrumbItem>
+                      {!isLast && <BreadcrumbSeparator />}
+                    </React.Fragment>
+                  )
+                })
+              })()}
+            </BreadcrumbList>
+          </Breadcrumb>
+          
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Documentos em "{getTypeLabel(selectedFolderType as any)}"
+              Documentos em "{selectedFolderType ? getTypeLabel(selectedFolderType as any) : (selectedFolderPath ? selectedFolderPath.split('/').pop() : 'Pasta')}"
             </h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { setSelectedFolderType(null) }}
-            >
-              Limpar filtro
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={() => {
+                  // Passar a pasta selecionada para pré-selecionar no formulário
+                  const folderPath = selectedFolderPath || (selectedFolderType ? getDefaultFolderPathForType(selectedFolderType) : undefined)
+                  onCreateDocument(folderPath || undefined)
+                }} 
+                className="flex items-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Novo</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { 
+                  setSelectedFolderPath(null)
+                  setSelectedFolderType(null)
+                }}
+              >
+                Limpar filtro
+              </Button>
+            </div>
           </div>
 
           {/* Controles de busca e data */}
@@ -258,61 +467,7 @@ export function FoldersSection({
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
               ) : (() => {
-                    let base = allDocuments
-                      .filter(d => d.type === (selectedFolderType as any))
-                      .filter(d => {
-                        const term = folderSearch.trim().toLowerCase()
-                        if (!term) return true
-                        const hay = `${d.title || ''} ${d.responsibleSector || ''} ${d.description || ''}`.toLowerCase()
-                        return hay.includes(term)
-                      })
-                      .filter(d => {
-                        if (!folderDateFrom && !folderDateTo) return true
-                        const created = new Date(d.createdAt)
-                        if (folderDateFrom) {
-                          const from = new Date(folderDateFrom)
-                          if (created < from) return false
-                        }
-                        if (folderDateTo) {
-                          const to = new Date(folderDateTo)
-                          to.setHours(23,59,59,999)
-                          if (created > to) return false
-                        }
-                        return true
-                      })
-                      .filter(d => !folderAuthorFilter || (d.createdBy || '') === folderAuthorFilter)
-
-                    // Aplicar ordenação
-                    if (sortField && sortDirection) {
-                      base = [...base].sort((a, b) => {
-                        let aVal: any = a[sortField]
-                        let bVal: any = b[sortField]
-                        
-                        if (sortField === 'nextReviewDate') {
-                          aVal = a.nextReviewDate ? new Date(a.nextReviewDate).getTime() : 0
-                          bVal = b.nextReviewDate ? new Date(b.nextReviewDate).getTime() : 0
-                        } else if (sortField === 'directory') {
-                          aVal = getDirectoryFromType(a.type)
-                          bVal = getDirectoryFromType(b.type)
-                        } else if (sortField === 'type') {
-                          aVal = getTypeLabel(a.type)
-                          bVal = getTypeLabel(b.type)
-                        }
-                        
-                        if (aVal === null || aVal === undefined) aVal = ''
-                        if (bVal === null || bVal === undefined) bVal = ''
-                        
-                        if (typeof aVal === 'string') {
-                          aVal = aVal.toLowerCase()
-                          bVal = bVal.toLowerCase()
-                        }
-                        
-                        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1
-                        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1
-                        return 0
-                      })
-                    }
-
+                    const base = getFilteredDocuments()
                     const total = base.length
                     const totalPagesFolder = Math.ceil(total / itemsPerPage) || 1
                     const start = (folderPage - 1) * itemsPerPage
@@ -321,54 +476,71 @@ export function FoldersSection({
 
                     if (pageDocs.length === 0) {
                       return (
-                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                          Nenhum documento nesta pasta
-                        </div>
+                        <ContextMenu>
+                          <ContextMenuTrigger asChild>
+                            <div className="text-center py-8 text-gray-500 dark:text-gray-400 cursor-context-menu">
+                              Nenhum documento nesta pasta
+                            </div>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-48">
+                            <ContextMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                // Passar a pasta selecionada para pré-selecionar no formulário
+                                const folderPath = selectedFolderPath || (selectedFolderType ? getDefaultFolderPathForType(selectedFolderType) : undefined)
+                                onCreateDocument(folderPath || undefined)
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Novo Documento
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
                       )
                     }
                     
                     return (
                       <div className="w-full">
-                        <table className="w-full border-collapse" style={{ tableLayout: 'auto', width: '100%' }}>
+                        <table className="w-full border-collapse" style={{ tableLayout: 'fixed', width: '100%' }}>
                           <thead>
                             <tr className="bg-gray-50 dark:bg-gray-800 border-b">
-                              <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '9%' }} onClick={() => handleSort('code')}>
+                              <th className="px-1 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '6%' }} onClick={() => handleSort('code')}>
                                 <div className="flex items-center gap-1">
                                   CÓDIGO
                                   {getSortIcon('code')}
                                 </div>
                               </th>
-                              <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '14%' }} onClick={() => handleSort('title')}>
+                              <th className="px-3 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '14%' }} onClick={() => handleSort('title')}>
                                 <div className="flex items-center gap-1">
                                   NOME
                                   {getSortIcon('title')}
                                 </div>
                               </th>
-                              <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '9%' }} onClick={() => handleSort('responsibleSector')}>
+                              <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '10%' }} onClick={() => handleSort('responsibleSector')}>
                                 <div className="flex items-center gap-1">
                                   AREA
                                   {getSortIcon('responsibleSector')}
                                 </div>
                               </th>
-                              <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '11%' }} onClick={() => handleSort('description')}>
+                              <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '12%' }} onClick={() => handleSort('description')}>
                                 <div className="flex items-center gap-1">
                                   DESCRIÇÃO
                                   {getSortIcon('description')}
                                 </div>
                               </th>
-                              <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '10%' }} onClick={() => handleSort('type')}>
+                              <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '11%' }} onClick={() => handleSort('type')}>
                                 <div className="flex items-center gap-1">
                                   CLASSIFICAÇÃO
                                   {getSortIcon('type')}
                                 </div>
                               </th>
-                              <th className="px-4 py-2 text-center text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '6%' }} onClick={() => handleSort('version')}>
+                              <th className="px-2 py-2 text-center text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '6%' }} onClick={() => handleSort('version')}>
                                 <div className="flex items-center justify-center gap-1">
-                                  VERSÃO
+                                  VER.
                                   {getSortIcon('version')}
                                 </div>
                               </th>
-                              <th className="px-4 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '12%' }} onClick={() => handleSort('directory')}>
+                              <th className="px-2 py-2 text-left text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '11%' }} onClick={() => handleSort('directory')}>
                                 <div className="flex items-center gap-1">
                                   DIRETÓRIO
                                   {getSortIcon('directory')}
@@ -376,7 +548,7 @@ export function FoldersSection({
                               </th>
                               <th className="px-2 py-2 text-center text-xs font-medium cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" style={{ width: '9%' }} onClick={() => handleSort('nextReviewDate')}>
                                 <div className="flex items-center justify-center gap-1">
-                                  VENCIMENTO
+                                  VENC.
                                   {getSortIcon('nextReviewDate')}
                                 </div>
                               </th>
@@ -386,7 +558,7 @@ export function FoldersSection({
                                   {getSortIcon('status')}
                                 </div>
                               </th>
-                              <th className="px-2 py-2 text-center text-xs font-medium" style={{ width: '12%' }}>
+                              <th className="px-2 py-2 text-center text-xs font-medium" style={{ width: '13%' }}>
                                 AÇÕES
                               </th>
                             </tr>
@@ -401,29 +573,34 @@ export function FoldersSection({
                                       className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b ${
                                         selectedDocument?.id === document.id ? 'bg-gray-100 dark:bg-gray-800' : ''
                                       }`}
-                                      onClick={() => setSelectedDocument(document)}
+                                      onMouseDown={(e) => {
+                                        // Selecionar apenas com clique esquerdo
+                                        if (e.button === 0) {
+                                          setSelectedDocument(document)
+                                        }
+                                      }}
                                     >
-                                      <td className="font-mono text-xs px-2 py-2 truncate" title={document.code || '—'}>
+                                      <td className="font-mono text-xs px-1 py-2 truncate" title={document.code || '—'}>
                                         {document.code || '—'}
                                       </td>
-                                      <td className="text-xs px-2 py-2 truncate" title={document.title || '—'}>
+                                      <td className="text-xs px-3 py-2 truncate" title={document.title || '—'}>
                                         {document.title || '—'}
                                       </td>
                                       <td className="text-xs px-2 py-2 truncate" title={document.responsibleSector || '—'}>
                                         {document.responsibleSector || '—'}
                                       </td>
-                                      <td className="text-xs px-2 py-2" title={document.description || '—'}>
-                                        {truncateText(document.description, 40)}
+                                      <td className="text-xs px-2 py-2 truncate" title={document.description || '—'}>
+                                        {truncateText(document.description, 30)}
                                       </td>
                                       <td className="text-xs px-2 py-2 truncate" title={getTypeLabel(document.type)}>
                                         {getTypeLabel(document.type)}
                                       </td>
-                                      <td className="text-xs px-4 py-2 text-center">{document.version || '1.0'}</td>
-                                      <td className="text-xs px-4 py-2 truncate" title={getDirectoryFromType(document.type)}>
-                                        {getDirectoryFromType(document.type)}
+                                      <td className="text-xs px-2 py-2 text-center">{document.version || '1.0'}</td>
+                                      <td className="text-xs px-2 py-2 truncate" title={getDirectoryFromFolderPath(document)}>
+                                        {getDirectoryFromFolderPath(document)}
                                       </td>
                                       <td className="px-2 py-2 text-center">
-                                        <div className={`px-2 py-1 rounded ${expirationStatus.bgColor} text-center font-medium text-xs whitespace-nowrap inline-block`}>
+                                        <div className={`px-1.5 py-0.5 rounded ${expirationStatus.bgColor} text-center font-medium text-xs whitespace-nowrap inline-block`}>
                                           {document.nextReviewDate ? formatDate(document.nextReviewDate) : '—'}
                                         </div>
                                       </td>
@@ -471,6 +648,18 @@ export function FoldersSection({
                                     <ContextMenuItem
                                       onClick={(e) => {
                                         e.stopPropagation()
+                                        // Passar a pasta selecionada para pré-selecionar no formulário
+                                        const folderPath = selectedFolderPath || (selectedFolderType ? getDefaultFolderPathForType(selectedFolderType) : undefined)
+                                        onCreateDocument(folderPath || undefined)
+                                      }}
+                                    >
+                                      <Plus className="h-4 w-4 mr-2" />
+                                      Novo Documento
+                                    </ContextMenuItem>
+                                    <ContextMenuSeparator />
+                                    <ContextMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation()
                                         setSelectedDocument(document)
                                       }}
                                     >
@@ -489,6 +678,19 @@ export function FoldersSection({
                                         Reaprazar
                                       </ContextMenuItem>
                                     )}
+                                    <ContextMenuItem
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        dragDrop.handleMoveDocument(document)
+                                        toast({
+                                          title: "Modo de Arrastar Ativado",
+                                          description: "Arraste o documento para a pasta desejada. Clique em qualquer lugar para cancelar.",
+                                        })
+                                      }}
+                                    >
+                                      <Move className="h-4 w-4 mr-2" />
+                                      Mover
+                                    </ContextMenuItem>
                                     <ContextMenuItem
                                       onClick={(e) => {
                                         e.stopPropagation()
@@ -531,32 +733,55 @@ export function FoldersSection({
                         
                         {/* Paginação */}
                         {totalPagesFolder > 1 && (
-                          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              {`Mostrando ${Math.min(total, start + 1)} a ${Math.min(end, total)} de ${total} documentos`}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setFolderPage(prev => Math.max(1, prev - 1))}
-                                disabled={folderPage === 1}
+                          <ContextMenu>
+                            <ContextMenuTrigger asChild>
+                              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 cursor-context-menu">
+                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                  {`Mostrando ${Math.min(total, start + 1)} a ${Math.min(end, total)} de ${total} documentos`}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setFolderPage(prev => Math.max(1, prev - 1))
+                                    }}
+                                    disabled={folderPage === 1}
+                                  >
+                                    Anterior
+                                  </Button>
+                                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                                    Página {folderPage} de {totalPagesFolder}
+                                  </span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setFolderPage(prev => Math.min(totalPagesFolder, prev + 1))
+                                    }}
+                                    disabled={folderPage === totalPagesFolder}
+                                  >
+                                    Próxima
+                                  </Button>
+                                </div>
+                              </div>
+                            </ContextMenuTrigger>
+                            <ContextMenuContent className="w-48">
+                              <ContextMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  // Passar a pasta selecionada para pré-selecionar no formulário
+                                  const folderPath = selectedFolderPath || (selectedFolderType ? getDefaultFolderPathForType(selectedFolderType) : undefined)
+                                  onCreateDocument(folderPath || undefined)
+                                }}
                               >
-                                Anterior
-                              </Button>
-                              <span className="text-sm text-gray-700 dark:text-gray-300">
-                                Página {folderPage} de {totalPagesFolder}
-                              </span>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setFolderPage(prev => Math.min(totalPagesFolder, prev + 1))}
-                                disabled={folderPage === totalPagesFolder}
-                              >
-                                Próxima
-                              </Button>
-                            </div>
-                          </div>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Novo Documento
+                              </ContextMenuItem>
+                            </ContextMenuContent>
+                          </ContextMenu>
                         )}
                       </div>
                     )
@@ -564,7 +789,75 @@ export function FoldersSection({
             </CardContent>
           </Card>
         </div>
-      )}
+        ) : (
+          <div className="flex-1 flex items-center justify-center p-12 overflow-y-auto">
+            <div className="text-center space-y-4 w-full flex flex-col items-center">
+              <FileText className="w-16 h-16 text-gray-400" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Selecione uma pasta
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Escolha uma pasta na barra lateral para visualizar os documentos
+              </p>
+              <Button 
+                onClick={() => onCreateDocument()} 
+                className="flex items-center space-x-2 mt-4 mx-auto"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Novo Documento</span>
+              </Button>
+            </div>
+          </div>
+        )}
+        </div>
+      </div>
+
+      {/* Modais de gerenciamento de pastas */}
+      <FolderCreateModal
+        isOpen={folderActions.isCreateFolderModalOpen}
+        onClose={() => {
+          folderActions.setIsCreateFolderModalOpen(false)
+          folderActions.setFolderActionData({})
+        }}
+        parentPath={folderActions.folderActionData.parentPath || ''}
+        onConfirm={folderActions.handleConfirmCreateFolder}
+        isCreating={folderActions.isFolderActionLoading}
+      />
+
+      <FolderRenameModal
+        isOpen={folderActions.isRenameFolderModalOpen}
+        onClose={() => {
+          folderActions.setIsRenameFolderModalOpen(false)
+          folderActions.setFolderActionData({})
+        }}
+        currentPath={folderActions.folderActionData.folderPath || ''}
+        currentName={folderActions.folderActionData.folderName || ''}
+        onConfirm={folderActions.handleConfirmRenameFolder}
+        isRenaming={folderActions.isFolderActionLoading}
+      />
+
+      <FolderDeleteModal
+        isOpen={folderActions.isDeleteFolderModalOpen}
+        onClose={() => {
+          folderActions.setIsDeleteFolderModalOpen(false)
+          folderActions.setFolderActionData({})
+        }}
+        folderPath={folderActions.folderActionData.folderPath || ''}
+        folderName={folderActions.folderActionData.folderName || ''}
+        documentCount={folderActions.folderActionData.documentCount || 0}
+        onConfirm={folderActions.handleConfirmDeleteFolder}
+        isDeleting={folderActions.isFolderActionLoading}
+      />
+
+      <FoldersDragIndicator
+        draggingItem={dragDrop.draggingItem}
+        dragIconPosition={dragDrop.dragIconPosition}
+        onCancel={() => {
+          dragDrop.setDraggingItem(null)
+          dragDrop.setDragOverFolder(null)
+          dragDrop.setDragIconPosition(null)
+        }}
+      />
     </div>
   )
 }

@@ -65,7 +65,8 @@ export class DocumentService {
         fileUrl: doc.fileUrl,
         fileSize: doc.fileSize,
         fileType: doc.fileName?.split('.').pop() || "",
-        accessLevel: "public"
+        accessLevel: "public",
+        folderPath: doc.folderPath || null
       })})
 
       // Remover mocks conhecidos (títulos como "Mock Doc ...")
@@ -105,7 +106,26 @@ export class DocumentService {
       const apiFormData = new FormData()
       apiFormData.append('title', formData.title)
       apiFormData.append('content', formData.description)
-      apiFormData.append('type', formData.type === 'procedure' ? 'MANAGEMENT_PROCEDURE' : 'WORK_INSTRUCTION')
+      // Validar tipo (já validado no DocumentValidator, mas verificamos aqui também)
+      if (!formData.type) {
+        return {
+          data: null,
+          error: 'O tipo do documento é obrigatório.',
+          success: false
+        }
+      }
+      
+      // Mapear tipo corretamente
+      const typeMapping: Record<string, string> = {
+        'procedure': 'MANAGEMENT_PROCEDURE',
+        'instruction': 'WORK_INSTRUCTION',
+        'form': 'WORK_INSTRUCTION',
+        'policy': 'WORK_INSTRUCTION',
+        'manual': 'WORK_INSTRUCTION',
+        'record': 'WORK_INSTRUCTION',
+        'other': 'WORK_INSTRUCTION'
+      }
+      apiFormData.append('type', typeMapping[formData.type] || 'WORK_INSTRUCTION')
       apiFormData.append('status', 'PUBLISHED')
       apiFormData.append('documentDate', today)
       
@@ -123,6 +143,11 @@ export class DocumentService {
       const sector = sectors.find(s => s.name === formData.responsibleSector)
       if (sector) {
         apiFormData.append('sectorId', sector.id)
+      }
+      
+      // Adicionar folderPath se fornecido
+      if (formData.folderPath) {
+        apiFormData.append('folderPath', formData.folderPath)
       }
       
       if (formData.file) {
@@ -158,7 +183,7 @@ export class DocumentService {
         nextReviewDate: data.expiryDate ? new Date(data.expiryDate).toISOString().split('T')[0] : (formData.nextReviewDate || new Date(formData.issueDate).toISOString().split('T')[0]),
         responsibleSector: data.sector?.name || formData.responsibleSector,
         status: 'active', // Sempre criar com status ativo
-        type: formData.type,
+        type: (formData.type || 'procedure') as Document['type'],
         description: data.content || "",
         approver: "",
         createdBy: data.createdBy?.name || "Unknown",
@@ -167,7 +192,8 @@ export class DocumentService {
         fileUrl: data.fileUrl,
         fileSize: data.fileSize,
         fileType: data.fileName?.split('.').pop() || "",
-        accessLevel: "public"
+        accessLevel: "public",
+        folderPath: data.folderPath || undefined
       }
 
       return {
@@ -197,10 +223,30 @@ export class DocumentService {
         }
       }
 
+      // Validar tipo (já validado no DocumentValidator, mas verificamos aqui também)
+      if (!formData.type) {
+        return {
+          data: null,
+          error: 'O tipo do documento é obrigatório.',
+          success: false
+        }
+      }
+      
       // Criar FormData para requisição da API
       const apiFormData = new FormData()
       apiFormData.append('title', formData.title)
       apiFormData.append('content', formData.description)
+      
+      // Mapear tipo corretamente
+      const typeMapping: Record<string, string> = {
+        'procedure': 'MANAGEMENT_PROCEDURE',
+        'instruction': 'WORK_INSTRUCTION',
+        'form': 'WORK_INSTRUCTION',
+        'policy': 'WORK_INSTRUCTION',
+        'manual': 'WORK_INSTRUCTION',
+        'record': 'WORK_INSTRUCTION',
+        'other': 'WORK_INSTRUCTION'
+      }
       
       // Mapeia status do frontend para backend
       if (formData.status === 'inactive') {
@@ -208,14 +254,14 @@ export class DocumentService {
         apiFormData.append('status', 'ARCHIVED')
       } else if (formData.status === 'expired') {
         // Para expirado, mantém o tipo e status original, mas define expiryDate no passado
-        apiFormData.append('type', formData.type === 'procedure' ? 'MANAGEMENT_PROCEDURE' : 'WORK_INSTRUCTION')
+        apiFormData.append('type', typeMapping[formData.type] || 'WORK_INSTRUCTION')
         apiFormData.append('status', 'PUBLISHED') // Mantém como PUBLISHED, o expired é calculado pela data
         // Define expiryDate para ontem para garantir que está expirado
         const yesterday = new Date()
         yesterday.setDate(yesterday.getDate() - 1)
         apiFormData.append('expiryDate', yesterday.toISOString().split('T')[0])
       } else {
-        apiFormData.append('type', formData.type === 'procedure' ? 'MANAGEMENT_PROCEDURE' : 'WORK_INSTRUCTION')
+        apiFormData.append('type', typeMapping[formData.type] || 'WORK_INSTRUCTION')
         apiFormData.append('status', formData.status === 'pending' ? 'DRAFT' : 'PUBLISHED')
       }
       
@@ -229,6 +275,11 @@ export class DocumentService {
       const sector = sectors.find(s => s.name === formData.responsibleSector)
       if (sector) {
         apiFormData.append('sectorId', sector.id)
+      }
+      
+      // Adicionar folderPath se fornecido (ou string vazia para remover)
+      if (formData.folderPath !== undefined) {
+        apiFormData.append('folderPath', formData.folderPath || '')
       }
       
       if (formData.file) {
@@ -286,7 +337,8 @@ export class DocumentService {
         fileUrl: data.fileUrl,
         fileSize: data.fileSize,
         fileType: data.fileName?.split('.').pop() || "",
-        accessLevel: "public"
+        accessLevel: "public",
+        folderPath: data.folderPath || undefined
       }
 
       return {

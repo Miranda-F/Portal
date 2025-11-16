@@ -30,6 +30,7 @@ export interface Document {
   fileSize?: number
   fileType?: string
   accessLevel: 'public' | 'restricted' | 'confidential'
+  folderPath?: string // Caminho da pasta hierárquica (ex: "Root/Microsoft/SharePro/Área Técnica/Gestão da Qualidade/Certificados/Formulários")
 }
 
 export interface DocumentVersion {
@@ -74,11 +75,12 @@ export interface DocumentFormData {
   issueDate: string
   nextReviewDate?: string // Data de vencimento/revisão
   responsibleSector: string
-  type: Document['type']
+  type: Document['type'] | ''
   description: string
   file: File | null
   status?: Document['status']
   classification?: string // Para quando status for inativo
+  folderPath?: string // Caminho da pasta hierárquica (obrigatório)
 }
 
 export interface VersionFormData {

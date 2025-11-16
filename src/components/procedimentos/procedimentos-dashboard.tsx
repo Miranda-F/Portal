@@ -19,7 +19,7 @@ interface ProcedimentosDashboardProps {
   sectorFilter: string
   setSectorFilter: (sector: string) => void
   sectors: string[]
-  onCreateDocument: () => void
+  onCreateDocument: (initialFolderPath?: string) => void
   onEditDocument: (document: Document) => void
   onDeleteDocument: (document: Document) => void
   onViewDocument: (document: Document) => void

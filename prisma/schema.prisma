@@ -20,176 +20,179 @@ model Sector {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relacionamentos
-  users       User[]
-  procedures  Procedure[]
-  publications PublicationSectorTarget[]
-  trainings   Training[]
-  employees   Employee[]
+  users                User[]
+  procedures           Procedure[]
+  publications         PublicationSectorTarget[]
+  trainings            Training[]
+  employees            Employee[]
   recruitmentProcesses RecruitmentProcess[]
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String    @id @default(cuid())
+  email     String    @unique
   name      String
   password  String
-  role      Role     @default(USER)
+  role      Role      @default(USER)
   photoUrl  String?
   lastLogin DateTime?
-  approved  Boolean  @default(true)  // Campo para controlar se o usuário está ativo
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  approved  Boolean   @default(true) // Campo para controlar se o usuário está ativo
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
   // Campo para controlar a exibição do card "Nossa identidade"
   showIdentityCard Boolean @default(true)
-  
+
   // Relacionamentos
-  sectorId  String?
-  sector    Sector?  @relation(fields: [sectorId], references: [id])
-  jobPostings JobPosting[]
-  events      Event[]
-  procedures  Procedure[]
-  publications Publication[]
-  jobApplications JobApplication[]
-  eventAttendances EventAttendance[]
-  procedureHistory ProcedureHistory[]
-  publicationTargets PublicationUserTarget[]
-  comments    Comment[]
-  groups      GroupUser[]
-  trainings   Training[]
+  sectorId               String?
+  sector                 Sector?                 @relation(fields: [sectorId], references: [id])
+  jobPostings            JobPosting[]
+  events                 Event[]
+  procedures             Procedure[]
+  publications           Publication[]
+  jobApplications        JobApplication[]
+  eventAttendances       EventAttendance[]
+  procedureHistory       ProcedureHistory[]
+  publicationTargets     PublicationUserTarget[]
+  comments               Comment[]
+  groups                 GroupUser[]
+  trainings              Training[]
   performanceEvaluations PerformanceEvaluation[] @relation("PerformanceEvaluator")
-  newsArticles NewsArticle[]
-  newsReactions NewsReaction[]
-  newsComments NewsComment[]
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
+  newsArticles           NewsArticle[]
+  newsReactions          NewsReaction[]
+  newsComments           NewsComment[]
+  refreshTokens          RefreshToken[]
+  auditLogs              AuditLog[]
 }
 
 model JobPosting {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  department  String
-  email       String
-  phone       String?
-  requirements String?
-  salary      String?
-  location    String?
-  type        JobType  @default(FULL_TIME)
-  status      JobStatus @default(ACTIVE)
+  id              String    @id @default(cuid())
+  title           String
+  description     String
+  department      String
+  email           String
+  phone           String?
+  requirements    String?
+  salary          String?
+  location        String?
+  type            JobType   @default(FULL_TIME)
+  status          JobStatus @default(ACTIVE)
   maxApplications Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
   // Relacionamentos
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  createdById String
+  createdBy       User             @relation(fields: [createdById], references: [id])
+  createdById     String
   jobApplications JobApplication[]
 }
 
 model Event {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  date        DateTime
-  time        String
-  location    String
+  id           String      @id @default(cuid())
+  title        String
+  description  String
+  date         DateTime
+  time         String
+  location     String
   maxAttendees Int?
-  status      EventStatus @default(UPCOMING)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  status       EventStatus @default(UPCOMING)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
   // Relacionamentos
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  createdById String
+  createdBy        User              @relation(fields: [createdById], references: [id])
+  createdById      String
   eventAttendances EventAttendance[]
 }
 
 model Procedure {
-  id            String   @id @default(cuid())
-  title         String
-  content       String?
-  type          ProcedureType @default(MANAGEMENT_PROCEDURE)
-  status        ProcedureStatus @default(DRAFT)
-  documentDate  DateTime? // Data de criação do documento
-  expiryDate    DateTime? // Data de validade (calculada automaticamente)
-  fileUrl       String?  // URL do arquivo PDF
-  fileName      String?  // Nome original do arquivo
-  fileSize      Int?     // Tamanho do arquivo em bytes
-  deletedAt     DateTime? // Data de exclusão (soft delete)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
+  id           String          @id @default(cuid())
+  title        String
+  content      String?
+  type         ProcedureType   @default(MANAGEMENT_PROCEDURE)
+  status       ProcedureStatus @default(DRAFT)
+  documentDate DateTime? // Data de criação do documento
+  expiryDate   DateTime? // Data de validade (calculada automaticamente)
+  fileUrl      String? // URL do arquivo PDF
+  fileName     String? // Nome original do arquivo
+  fileSize     Int? // Tamanho do arquivo em bytes
+  deletedAt    DateTime? // Data de exclusão (soft delete)
+  folderPath   String? // Caminho da pasta hierárquica (ex: "Root/Microsoft/SharePro/Área Técnica/Gestão da Qualidade/Certificados/Formulários")
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
   // Relacionamentos
-  createdBy     User     @relation(fields: [createdById], references: [id])
-  createdById   String
-  sectorId      String?
-  sector        Sector?  @relation(fields: [sectorId], references: [id])
-  history       ProcedureHistory[]
+  createdBy   User               @relation(fields: [createdById], references: [id])
+  createdById String
+  sectorId    String?
+  sector      Sector?            @relation(fields: [sectorId], references: [id])
+  history     ProcedureHistory[]
+
+  @@index([folderPath])
 }
 
 model ProcedureHistory {
   id          String   @id @default(cuid())
-  action      String   // "CRIADO", "ATUALIZADO", "STATUS_ALTERADO", "ARQUIVO_ALTERADO", etc.
-  description String?  // Descrição detalhada da alteração
-  oldValues   String?  // Valores antigos em JSON
-  newValues   String?  // Valores novos em JSON
+  action      String // "CRIADO", "ATUALIZADO", "STATUS_ALTERADO", "ARQUIVO_ALTERADO", etc.
+  description String? // Descrição detalhada da alteração
+  oldValues   String? // Valores antigos em JSON
+  newValues   String? // Valores novos em JSON
   createdAt   DateTime @default(now())
-  
+
   // Relacionamentos
   procedureId String
   procedure   Procedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
   userId      String
-  user        User     @relation(fields: [userId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
 }
 
 model Publication {
-  id          String   @id @default(cuid())
-  title       String
-  content     String
-  type        PublicationType @default(REPORT)
-  status      PublicationStatus @default(PUBLISHED)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id        String            @id @default(cuid())
+  title     String
+  content   String
+  type      PublicationType   @default(REPORT)
+  status    PublicationStatus @default(PUBLISHED)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
   // Relacionamentos
-  createdBy   User     @relation(fields: [createdById], references: [id])
-  createdById String
-  userTargets PublicationUserTarget[]
+  createdBy     User                      @relation(fields: [createdById], references: [id])
+  createdById   String
+  userTargets   PublicationUserTarget[]
   sectorTargets PublicationSectorTarget[]
-  groupTargets PublicationGroupTarget[]
-  comments    Comment[]
+  groupTargets  PublicationGroupTarget[]
+  comments      Comment[]
 }
 
 model JobApplication {
-  id        String   @id @default(cuid())
+  id        String               @id @default(cuid())
   status    JobApplicationStatus @default(PENDING)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
   // Relacionamentos
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  jobId     String
-  job       JobPosting @relation(fields: [jobId], references: [id])
-  
+  userId String
+  user   User       @relation(fields: [userId], references: [id])
+  jobId  String
+  job    JobPosting @relation(fields: [jobId], references: [id])
+
   @@unique([userId, jobId])
 }
 
 model EventAttendance {
-  id        String   @id @default(cuid())
+  id        String                @id @default(cuid())
   status    EventAttendanceStatus @default(CONFIRMED)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
   // Relacionamentos
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  eventId   String
-  event     Event    @relation(fields: [eventId], references: [id])
-  
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id])
+
   @@unique([userId, eventId])
 }
 
@@ -255,28 +258,28 @@ enum EventAttendanceStatus {
 }
 
 model PublicationUserTarget {
-  id           String   @id @default(cuid())
-  createdAt    DateTime @default(now())
-  
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
   // Relacionamentos
   publicationId String
-  publication  Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
-  userId       String
-  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([publicationId, userId])
 }
 
 model PublicationSectorTarget {
-  id           String   @id @default(cuid())
-  createdAt    DateTime @default(now())
-  
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
   // Relacionamentos
   publicationId String
-  publication  Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
-  sectorId     String
-  sector       Sector      @relation(fields: [sectorId], references: [id], onDelete: Cascade)
-  
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  sectorId      String
+  sector        Sector      @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+
   @@unique([publicationId, sectorId])
 }
 
@@ -285,18 +288,18 @@ model Comment {
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relacionamentos
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  parentId  String?
-  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id])
-  replies   Comment[] @relation("CommentReplies")
-  
+  userId   String
+  user     User      @relation(fields: [userId], references: [id])
+  parentId String?
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentReplies")
+
   // Polimorfismo - pode ser associado a diferentes entidades
   publicationId String?
-  publication    Publication? @relation(fields: [publicationId], references: [id])
-  
+  publication   Publication? @relation(fields: [publicationId], references: [id])
+
   @@map("comments")
 }
 
@@ -307,151 +310,151 @@ model Group {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relacionamentos
-  users       GroupUser[]
+  users        GroupUser[]
   publications PublicationGroupTarget[]
 }
 
 model Training {
-  id          String   @id @default(cuid())
-  title       String   // Tipo de treinamento (ex: NR 10, NR 35)
-  deadline    DateTime // Data de vencimento
-  status      TrainingStatus @default(VALID) // Status do treinamento
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id        String         @id @default(cuid())
+  title     String // Tipo de treinamento (ex: NR 10, NR 35)
+  deadline  DateTime // Data de vencimento
+  status    TrainingStatus @default(VALID) // Status do treinamento
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
   // Relacionamentos
   collaboratorId String
-  collaborator  User     @relation(fields: [collaboratorId], references: [id])
-  sectorId      String?
-  sector        Sector?  @relation(fields: [sectorId], references: [id])
+  collaborator   User    @relation(fields: [collaboratorId], references: [id])
+  sectorId       String?
+  sector         Sector? @relation(fields: [sectorId], references: [id])
 }
 
 model GroupUser {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-  
+
   // Relacionamentos
-  groupId   String
-  group     Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([groupId, userId])
 }
 
 model PublicationGroupTarget {
-  id           String   @id @default(cuid())
-  createdAt    DateTime @default(now())
-  
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
   // Relacionamentos
   publicationId String
-  publication  Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
-  groupId      String
-  group        Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  groupId       String
+  group         Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
   @@unique([publicationId, groupId])
 }
 
 enum TrainingStatus {
-  VALID    // No prazo
-  EXPIRED  // Vencido
-  PENDING  // Próximo a vencer
+  VALID // No prazo
+  EXPIRED // Vencido
+  PENDING // Próximo a vencer
 }
 
 // Modelos para o Sistema de Jornal Corporativo
 
 model NewsArticle {
-  id            String   @id @default(cuid())
-  title         String
-  summary       String
-  content       String
-  slug          String   @unique
-  categoryId    String
-  category      NewsCategory @relation(fields: [categoryId], references: [id])
-  authorId      String
-  author        User     @relation(fields: [authorId], references: [id])
-  featured      Boolean  @default(false)
-  publishedAt   DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  status        NewsStatus @default(PUBLISHED)
-  viewCount     Int      @default(0)
-  priority      Int      @default(0) // Para ordenação por destaque
-  
+  id          String       @id @default(cuid())
+  title       String
+  summary     String
+  content     String
+  slug        String       @unique
+  categoryId  String
+  category    NewsCategory @relation(fields: [categoryId], references: [id])
+  authorId    String
+  author      User         @relation(fields: [authorId], references: [id])
+  featured    Boolean      @default(false)
+  publishedAt DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  status      NewsStatus   @default(PUBLISHED)
+  viewCount   Int          @default(0)
+  priority    Int          @default(0) // Para ordenação por destaque
+
   // Relacionamentos
-  media         NewsMedia[]
-  reactions     NewsReaction[]
-  comments      NewsComment[]
-  tags          NewsTag[]
+  media     NewsMedia[]
+  reactions NewsReaction[]
+  comments  NewsComment[]
+  tags      NewsTag[]
 }
 
 model NewsCategory {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
-  color       String?  // Cor para identificação visual
-  icon        String?  // Ícone para a categoria
+  color       String? // Cor para identificação visual
+  icon        String? // Ícone para a categoria
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relacionamentos
-  articles    NewsArticle[]
+  articles NewsArticle[]
 }
 
 model NewsMedia {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   articleId   String
   article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  type        MediaType @default(IMAGE)
+  type        MediaType   @default(IMAGE)
   url         String
   title       String?
   description String?
   altText     String?
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
-  
+  order       Int         @default(0)
+  createdAt   DateTime    @default(now())
+
   @@unique([articleId, order])
 }
 
 model NewsReaction {
-  id          String   @id @default(cuid())
-  articleId   String
-  article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  userId      String?
-  user        User?     @relation(fields: [userId], references: [id])
-  reaction    ReactionType @default(LIKE)
-  ipAddress   String?  // Para anonimizar reações
-  createdAt   DateTime @default(now())
-  
+  id        String       @id @default(cuid())
+  articleId String
+  article   NewsArticle  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?        @relation(fields: [userId], references: [id])
+  reaction  ReactionType @default(LIKE)
+  ipAddress String? // Para anonimizar reações
+  createdAt DateTime     @default(now())
+
   @@unique([articleId, userId, ipAddress])
 }
 
 model NewsComment {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   articleId   String
-  article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  article     NewsArticle   @relation(fields: [articleId], references: [id], onDelete: Cascade)
   userId      String?
-  user        User?     @relation(fields: [userId], references: [id])
-  authorName  String?  // Para comentários anônimos
-  authorEmail String?  // Para comentários anônimos
+  user        User?         @relation(fields: [userId], references: [id])
+  authorName  String? // Para comentários anônimos
+  authorEmail String? // Para comentários anônimos
   content     String
-  approved    Boolean  @default(true)
+  approved    Boolean       @default(true)
   parentId    String?
-  parent      NewsComment? @relation("NewsCommentReplies", fields: [parentId], references: [id])
+  parent      NewsComment?  @relation("NewsCommentReplies", fields: [parentId], references: [id])
   replies     NewsComment[] @relation("NewsCommentReplies")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 model NewsTag {
-  id          String   @id @default(cuid())
-  articleId   String
-  article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
-  name        String
-  createdAt   DateTime @default(now())
-  
+  id        String      @id @default(cuid())
+  articleId String
+  article   NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime    @default(now())
+
   @@unique([articleId, name])
 }
 
@@ -487,45 +490,45 @@ model Setting {
 model RefreshToken {
   id        String   @id @default(cuid())
   tokenId   String   @unique // UUID para identificar o token
-  tokenHash String   // Hash do refresh token para segurança
+  tokenHash String // Hash do refresh token para segurança
   userId    String
   expiresAt DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relacionamentos
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([expiresAt])
 }
 
 // Modelo para Logs de Auditoria
 model AuditLog {
-  id                String   @id @default(cuid())
-  userId            String?  // ID do usuário que realizou a ação
-  userName          String?  // Nome do usuário no momento da ação
-  userEmail         String?  // Email do usuário no momento da ação
-  userRole          Role?    // Perfil do usuário no momento da ação
-  action            String   // Tipo de ação realizada
-  actionType        ActionType // Tipo categorizado da ação
-  description       String   // Descrição detalhada da ação
-  details           String?  // Detalhes adicionais em JSON (campos afetados, valores anteriores e novos)
-  ipAddress         String?  // IP do usuário
-  userAgent         String?  // User agent do dispositivo
-  requestSource     RequestSource? // Origem da solicitação
-  entityType        String?  // Tipo de entidade afetada
-  entityId          String?  // ID da entidade afetada
-  entityName        String?  // Nome/descrição da entidade afetada
-  result            ActionResult @default(SUCCESS) // Resultado da ação
-  errorCode         String?  // Código de erro, se houver
-  errorMessage      String?  // Mensagem de erro, se houver
-  sessionId         String?  // ID da sessão, se aplicável
-  createdAt         DateTime @default(now()) // Data e hora da ação
-  
+  id            String         @id @default(cuid())
+  userId        String? // ID do usuário que realizou a ação
+  userName      String? // Nome do usuário no momento da ação
+  userEmail     String? // Email do usuário no momento da ação
+  userRole      Role? // Perfil do usuário no momento da ação
+  action        String // Tipo de ação realizada
+  actionType    ActionType // Tipo categorizado da ação
+  description   String // Descrição detalhada da ação
+  details       String? // Detalhes adicionais em JSON (campos afetados, valores anteriores e novos)
+  ipAddress     String? // IP do usuário
+  userAgent     String? // User agent do dispositivo
+  requestSource RequestSource? // Origem da solicitação
+  entityType    String? // Tipo de entidade afetada
+  entityId      String? // ID da entidade afetada
+  entityName    String? // Nome/descrição da entidade afetada
+  result        ActionResult   @default(SUCCESS) // Resultado da ação
+  errorCode     String? // Código de erro, se houver
+  errorMessage  String? // Mensagem de erro, se houver
+  sessionId     String? // ID da sessão, se aplicável
+  createdAt     DateTime       @default(now()) // Data e hora da ação
+
   // Relacionamentos
-  user              User?    @relation(fields: [userId], references: [id])
-  
+  user User? @relation(fields: [userId], references: [id])
+
   @@index([userId])
   @@index([actionType])
   @@index([entityType])
@@ -581,126 +584,126 @@ enum ActionResult {
 // Modelos de Recursos Humanos (RH)
 
 model Employee {
-  id              String   @id @default(cuid())
-  cpf             String   @unique
-  name            String
-  email           String   @unique
-  phone           String?
-  address         String?
-  city            String?
-  state           String?
-  zipCode         String?
-  position        String   // Cargo
-  sectorId        String
-  admissionDate   DateTime
-  salary          Float    // Salário base
-  employmentType  EmploymentType @default(CLT)
-  status          EmployeeStatus @default(ACTIVE)
-  birthDate       DateTime?
-  gender          Gender?
-  educationLevel  EducationLevel?
-  maritalStatus   MaritalStatus?
+  id               String          @id @default(cuid())
+  cpf              String          @unique
+  name             String
+  email            String          @unique
+  phone            String?
+  address          String?
+  city             String?
+  state            String?
+  zipCode          String?
+  position         String // Cargo
+  sectorId         String
+  admissionDate    DateTime
+  salary           Float // Salário base
+  employmentType   EmploymentType  @default(CLT)
+  status           EmployeeStatus  @default(ACTIVE)
+  birthDate        DateTime?
+  gender           Gender?
+  educationLevel   EducationLevel?
+  maritalStatus    MaritalStatus?
   emergencyContact String?
-  emergencyPhone  String?
-  notes           String?
-  photoUrl        String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  emergencyPhone   String?
+  notes            String?
+  photoUrl         String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
   // Relacionamentos
-  sector          Sector     @relation(fields: [sectorId], references: [id])
-  history         EmployeeHistory[]
-  documents       EmployeeDocument[]
-  evaluations     PerformanceEvaluation[]
-  careerPlans     CareerPlan[]
-  applications    Application[]
-  trainings       EmployeeTraining[]
+  sector       Sector                  @relation(fields: [sectorId], references: [id])
+  history      EmployeeHistory[]
+  documents    EmployeeDocument[]
+  evaluations  PerformanceEvaluation[]
+  careerPlans  CareerPlan[]
+  applications Application[]
+  trainings    EmployeeTraining[]
 }
 
 model EmployeeHistory {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   employeeId  String
   type        HistoryType
   title       String
   description String?
   date        DateTime
-  oldValues   String?  // JSON com valores antigos
-  newValues   String?  // JSON com valores novos
-  createdAt   DateTime @default(now())
-  
+  oldValues   String? // JSON com valores antigos
+  newValues   String? // JSON com valores novos
+  createdAt   DateTime    @default(now())
+
   // Relacionamentos
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
 model EmployeeDocument {
-  id          String   @id @default(cuid())
-  employeeId  String
-  type        DocumentType
-  title       String
-  fileUrl     String
-  fileName    String
-  fileSize    Int?
-  mimeType    String?
-  expiryDate  DateTime? // Data de validade (para exames, etc.)
-  notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id         String       @id @default(cuid())
+  employeeId String
+  type       DocumentType
+  title      String
+  fileUrl    String
+  fileName   String
+  fileSize   Int?
+  mimeType   String?
+  expiryDate DateTime? // Data de validade (para exames, etc.)
+  notes      String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
   // Relacionamentos
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
 model RecruitmentProcess {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  department  String
-  sectorId    String?
+  id           String            @id @default(cuid())
+  title        String
+  description  String?
+  department   String
+  sectorId     String?
   requirements String?
-  salaryRange String?
-  openings    Int      @default(1)
-  status      RecruitmentStatus @default(OPEN)
-  priority    Priority @default(MEDIUM)
-  startDate   DateTime @default(now())
-  endDate     DateTime?
-  createdBy   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  salaryRange  String?
+  openings     Int               @default(1)
+  status       RecruitmentStatus @default(OPEN)
+  priority     Priority          @default(MEDIUM)
+  startDate    DateTime          @default(now())
+  endDate      DateTime?
+  createdBy    String
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
   // Relacionamentos
-  sector      Sector?      @relation(fields: [sectorId], references: [id])
+  sector       Sector?            @relation(fields: [sectorId], references: [id])
   applications Application[]
-  stages      RecruitmentStage[]
+  stages       RecruitmentStage[]
 }
 
 model Application {
-  id           String   @id @default(cuid())
-  processId    String
-  employeeId   String?  // Pode ser null se for candidato externo
-  name         String   // Nome do candidato
-  email        String
-  phone        String?
-  cpf          String?
-  address      String?
-  education    String?
-  experience   String?
+  id                String            @id @default(cuid())
+  processId         String
+  employeeId        String? // Pode ser null se for candidato externo
+  name              String // Nome do candidato
+  email             String
+  phone             String?
+  cpf               String?
+  address           String?
+  education         String?
+  experience        String?
   salaryExpectation String?
-  availability String?
-  resumeUrl    String?
-  status       ApplicationStatus @default(RECEIVED)
-  score        Float?   // Pontuação na avaliação
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
+  availability      String?
+  resumeUrl         String?
+  status            ApplicationStatus @default(RECEIVED)
+  score             Float? // Pontuação na avaliação
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
   // Relacionamentos
-  process      RecruitmentProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
-  employee     Employee?          @relation(fields: [employeeId], references: [id])
-  stages       ApplicationStage[]
+  process  RecruitmentProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  employee Employee?          @relation(fields: [employeeId], references: [id])
+  stages   ApplicationStage[]
 }
 
 model RecruitmentStage {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   processId String
   name      String
   order     Int
@@ -708,102 +711,102 @@ model RecruitmentStage {
   status    StageStatus @default(PENDING)
   startDate DateTime?
   endDate   DateTime?
-  createdAt DateTime @default(now())
-  
+  createdAt DateTime    @default(now())
+
   // Relacionamentos
-  process   RecruitmentProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  process      RecruitmentProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
   applications ApplicationStage[]
 }
 
 model ApplicationStage {
-  id           String   @id @default(cuid())
+  id            String      @id @default(cuid())
   applicationId String
-  stageId      String
-  status       StageStatus @default(PENDING)
-  feedback     String?
-  interviewer  String?
+  stageId       String
+  status        StageStatus @default(PENDING)
+  feedback      String?
+  interviewer   String?
   interviewDate DateTime?
-  score        Float?
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
+  score         Float?
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
   // Relacionamentos
-  application  Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  stage        RecruitmentStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  application Application      @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  stage       RecruitmentStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
 }
 
 model PerformanceEvaluation {
-  id          String   @id @default(cuid())
-  employeeId  String
-  evaluatorId String
-  period      String   // Ex: "2024-Q1", "2024-Annual"
-  type        EvaluationType @default(QUARTERLY)
-  overallScore Float    // Nota geral (0-10)
-  goals       String?  // JSON com metas e resultados
-  strengths   String?  // Pontos fortes
-  weaknesses  String?  // Pontos a melhorar
-  feedback    String?  // Feedback detalhado
-  actionPlan  String?  // Plano de ação
-  status      EvaluationStatus @default(DRAFT)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id           String           @id @default(cuid())
+  employeeId   String
+  evaluatorId  String
+  period       String // Ex: "2024-Q1", "2024-Annual"
+  type         EvaluationType   @default(QUARTERLY)
+  overallScore Float // Nota geral (0-10)
+  goals        String? // JSON com metas e resultados
+  strengths    String? // Pontos fortes
+  weaknesses   String? // Pontos a melhorar
+  feedback     String? // Feedback detalhado
+  actionPlan   String? // Plano de ação
+  status       EvaluationStatus @default(DRAFT)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
   // Relacionamentos
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  evaluator   User     @relation("PerformanceEvaluator", fields: [evaluatorId], references: [id])
+  employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  evaluator User     @relation("PerformanceEvaluator", fields: [evaluatorId], references: [id])
 }
 
 model CareerPlan {
-  id          String   @id @default(cuid())
-  employeeId  String
+  id              String           @id @default(cuid())
+  employeeId      String
   currentPosition String
-  targetPosition String
-  description String?
-  requirements String?  // JSON com requisitos
-  timeline    String?  // Ex: "6 meses", "1 ano"
-  status      CareerPlanStatus @default(ACTIVE)
-  priority    Priority @default(MEDIUM)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  targetPosition  String
+  description     String?
+  requirements    String? // JSON com requisitos
+  timeline        String? // Ex: "6 meses", "1 ano"
+  status          CareerPlanStatus @default(ACTIVE)
+  priority        Priority         @default(MEDIUM)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
   // Relacionamentos
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
 model EmployeeTraining {
-  id          String   @id @default(cuid())
-  employeeId  String
-  title       String
-  description String?
-  type        TrainingType
-  provider    String?
-  duration    Int?     // Duração em horas
-  startDate   DateTime
-  endDate     DateTime?
-  cost        Float?
-  status      TrainingCompletionStatus @default(PLANNED)
+  id             String                   @id @default(cuid())
+  employeeId     String
+  title          String
+  description    String?
+  type           TrainingType
+  provider       String?
+  duration       Int? // Duração em horas
+  startDate      DateTime
+  endDate        DateTime?
+  cost           Float?
+  status         TrainingCompletionStatus @default(PLANNED)
   certificateUrl String?
-  score       Float?   // Nota/avaliação
-  feedback    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  score          Float? // Nota/avaliação
+  feedback       String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
   // Relacionamentos
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
 model HRIndicator {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   type        IndicatorType
-  period      String   // Ex: "2024-01", "2024-Q1"
+  period      String // Ex: "2024-01", "2024-Q1"
   value       Float
   target      Float?
-  unit        String?  // Ex: "%", "dias", "R$"
+  unit        String? // Ex: "%", "dias", "R$"
   description String?
-  metadata    String?  // JSON com dados adicionais
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  metadata    String? // JSON com dados adicionais
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 }
 
 // Enums para RH

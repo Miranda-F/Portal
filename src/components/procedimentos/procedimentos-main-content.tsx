@@ -35,7 +35,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { getStatusBadge, getTypeLabel, formatFileSize, getExpirationStatus, formatDate, getDirectoryFromType, truncateText } from './utils/document-utils'
+import { getStatusBadge, getTypeLabel, formatFileSize, getExpirationStatus, formatDate, getDirectoryFromType, getDirectoryFromFolderPath, truncateText } from './utils/document-utils'
 import { calculateFolderData } from './utils/folder-utils'
 
 interface ProcedimentosMainContentProps {
@@ -53,7 +53,7 @@ interface ProcedimentosMainContentProps {
   sectorFilter: string
   setSectorFilter: (sector: string) => void
   sectors: string[]
-  onCreateDocument: () => void
+  onCreateDocument: (initialFolderPath?: string) => void
   onEditDocument: (document: Document) => void
   onDeleteDocument: (document: Document) => void
   onViewDocument: (document: Document) => void
@@ -81,6 +81,7 @@ export function ProcedimentosMainContent({
   onRescheduleDocument,
   selectedDocument,
   setSelectedDocument,
+  onRefreshDocuments
 }: ProcedimentosMainContentProps) {
   const { user, logout } = useAuth()
   const [currentPage] = useState(1)
@@ -183,12 +184,14 @@ export function ProcedimentosMainContent({
         loading={loading}
         selectedDocument={selectedDocument}
         setSelectedDocument={setSelectedDocument}
+        onCreateDocument={onCreateDocument}
         onEditDocument={onEditDocument}
         onViewDocument={onViewDocument}
         onDownloadDocument={onDownloadDocument}
         onRescheduleDocument={onRescheduleDocument}
         onDeleteDocument={onDeleteDocument}
         onViewHistory={onViewHistory}
+        onRefreshDocuments={onRefreshDocuments}
         user={user}
         logout={logout}
       />
@@ -343,35 +346,35 @@ export function ProcedimentosMainContent({
               <div className="w-full">
                 <table className="w-full border-collapse" style={{ tableLayout: 'auto', width: '100%' }}>
                   <thead>
-                    <tr className="bg-gray-50 dark:bg-gray-800 border-b">
-                      <th className="px-2 py-2 text-left text-xs font-medium" style={{ width: '9%' }}>
+                    <tr className="border-b border-border/20 bg-slate-100 dark:bg-slate-900/60">
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '9%' }}>
                         CÓDIGO
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-medium" style={{ width: '14%' }}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '14%' }}>
                         NOME
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-medium" style={{ width: '9%' }}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '9%' }}>
                         AREA
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-medium" style={{ width: '11%' }}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '11%' }}>
                         DESCRIÇÃO
                       </th>
-                      <th className="px-2 py-2 text-left text-xs font-medium" style={{ width: '10%' }}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '10%' }}>
                         CLASSIFICAÇÃO
                       </th>
-                      <th className="px-4 py-2 text-center text-xs font-medium" style={{ width: '6%' }}>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '6%' }}>
                         VERSÃO
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium" style={{ width: '12%' }}>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '12%' }}>
                         DIRETÓRIO
                       </th>
-                      <th className="px-2 py-2 text-center text-xs font-medium" style={{ width: '9%' }}>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '9%' }}>
                         VENCIMENTO
                       </th>
-                      <th className="px-2 py-2 text-center text-xs font-medium" style={{ width: '8%' }}>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '8%' }}>
                         STATUS
                       </th>
-                      <th className="px-2 py-2 text-center text-xs font-medium" style={{ width: '12%' }}>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-600 dark:text-gray-300" style={{ width: '12%' }}>
                         AÇÕES
                       </th>
                     </tr>
@@ -383,41 +386,41 @@ export function ProcedimentosMainContent({
                         <ContextMenu key={document.id}>
                           <ContextMenuTrigger asChild>
                             <tr
-                              className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 border-b ${
-                                selectedDocument?.id === document.id ? 'bg-gray-100 dark:bg-gray-800' : ''
-                              }`}
-                              onClick={() => setSelectedDocument(document)}
-                            >
-                          <td className="font-mono text-xs px-2 py-2 truncate" title={document.code || '—'}>
+                              className={`cursor-pointer border-b border-border/20 last:border-b-0 transition-colors hover:bg-primary/10 dark:hover:bg-primary/10 ${
+                                selectedDocument?.id === document.id ? 'bg-primary/10 dark:bg-primary/20' : ''
+                      }`}
+                      onClick={() => setSelectedDocument(document)}
+                    >
+                          <td className="font-mono text-xs px-3 py-2 truncate" title={document.code || '—'}>
                             {document.code || '—'}
                           </td>
-                          <td className="text-xs px-2 py-2 truncate" title={document.title || '—'}>
+                          <td className="text-xs px-3 py-2 truncate" title={document.title || '—'}>
                             {document.title || '—'}
                           </td>
-                          <td className="text-xs px-2 py-2 truncate" title={document.responsibleSector || '—'}>
+                          <td className="text-xs px-3 py-2 truncate" title={document.responsibleSector || '—'}>
                             {document.responsibleSector || '—'}
                           </td>
-                          <td className="text-xs px-2 py-2" title={document.description || '—'}>
+                          <td className="text-xs px-3 py-2" title={document.description || '—'}>
                             {truncateText(document.description, 40)}
                           </td>
-                          <td className="text-xs px-2 py-2 truncate" title={getTypeLabel(document.type)}>
+                          <td className="text-xs px-3 py-2 truncate" title={getTypeLabel(document.type)}>
                             {getTypeLabel(document.type)}
                           </td>
-                          <td className="text-xs px-4 py-2 text-center">{document.version || '1.0'}</td>
-                          <td className="text-xs px-4 py-2 truncate" title={getDirectoryFromType(document.type)}>
-                            {getDirectoryFromType(document.type)}
+                          <td className="text-xs px-3 py-2 text-center">{document.version || '1.0'}</td>
+                          <td className="text-xs px-3 py-2 truncate" title={getDirectoryFromFolderPath(document)}>
+                            {getDirectoryFromFolderPath(document)}
                           </td>
-                          <td className="px-2 py-2 text-center">
+                          <td className="px-3 py-2 text-center">
                             <div className={`px-2 py-1 rounded ${expirationStatus.bgColor} text-center font-medium text-xs whitespace-nowrap inline-block`}>
                               {document.nextReviewDate ? formatDate(document.nextReviewDate) : '—'}
                         </div>
                           </td>
-                          <td className="px-2 py-2 text-center">
+                          <td className="px-3 py-2 text-center">
                             <div className="flex justify-center">
                               {getStatusBadge(document.status)}
                             </div>
                           </td>
-                          <td className="px-2 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                          <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="ghost"
@@ -464,18 +467,18 @@ export function ProcedimentosMainContent({
                               </ContextMenuItem>
                             )}
                             <ContextMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                onEditDocument(document)
-                              }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onEditDocument(document)
+                            }}
                             >
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
                             </ContextMenuItem>
                             {onViewHistory && (
                               <ContextMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation()
+                            onClick={(e) => {
+                              e.stopPropagation()
                                   onViewHistory(document)
                                 }}
                               >

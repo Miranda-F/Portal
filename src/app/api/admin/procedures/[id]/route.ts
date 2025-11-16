@@ -97,6 +97,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const status = formData.get('status') as string
     const sectorId = formData.get('sectorId') as string
     const documentDateStr = formData.get('documentDate') as string
+    const folderPath = formData.get('folderPath') as string | null
     const file = formData.get('file') as File
     const removeFile = formData.get('removeFile') as string
 
@@ -186,6 +187,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       updateData.fileUrl = fileUrl
       updateData.fileName = fileName
       updateData.fileSize = fileSize
+    }
+    // Atualizar folderPath se fornecido
+    if (folderPath !== null) {
+      updateData.folderPath = folderPath || null
     }
 
     const procedure = await db.procedure.update({
