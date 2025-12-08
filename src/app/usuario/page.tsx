@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { useAuth } from "@/hooks/use-auth"
-import { Sora } from "next/font/google"
+import { Sora, Inter } from "next/font/google"
 
 const sora = Sora({ subsets: ["latin"], weight: ["600", "700"] })
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] })
 
 // Components
 import { UsuarioHeader } from "@/components/usuario/UsuarioHeader"
@@ -70,9 +71,7 @@ export default function UsuarioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950/50">
-      <div className="fixed inset-0 -z-10 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]"></div>
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"></div>
+    <div className={`min-h-screen bg-slate-50 dark:bg-black ${inter.className}`}>
       
       {/* Layout with Sidebar and Header */}
       <div className="relative">

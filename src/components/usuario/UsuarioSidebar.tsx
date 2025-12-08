@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useAuth } from "@/hooks/use-auth"
+import { RobustImage } from "@/components/RobustImage"
 import { getInitials } from "@/lib/utils"
 
 interface SidebarItem {
@@ -239,8 +240,25 @@ export function UsuarioSidebar({ className, onNavigate, onProfileClick }: Usuari
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <div className="flex justify-center cursor-pointer">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center text-white font-bold text-sm border-2 border-yellow-400 shadow-md">
-                                        {user?.name ? getInitials(user.name) : 'U'}
+                                    <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-100 font-semibold">
+                                        {user?.photoUrl ? (
+                                            <RobustImage
+                                                src={
+                                                    user.photoUrl.startsWith('data:') ||
+                                                    user.photoUrl.startsWith('blob:') ||
+                                                    user.photoUrl.startsWith('http')
+                                                        ? user.photoUrl
+                                                        : user.photoUrl
+                                                }
+                                                alt={user?.name || 'Foto de perfil'}
+                                                className="w-full h-full object-cover"
+                                                width={40}
+                                                height={40}
+                                                showLoading={false}
+                                            />
+                                        ) : (
+                                            <span className="text-sm">{user?.name ? getInitials(user.name) : 'U'}</span>
+                                        )}
                                     </div>
                                 </div>
                             </TooltipTrigger>
@@ -253,8 +271,25 @@ export function UsuarioSidebar({ className, onNavigate, onProfileClick }: Usuari
                         </Tooltip>
                     ) : (
                         <div className="flex items-center gap-3 bg-gradient-to-r from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 p-3 rounded-lg border border-border/50">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-600 to-purple-800 flex items-center justify-center text-white font-bold text-base border-2 border-yellow-400 shadow-md flex-shrink-0">
-                                {user?.name ? getInitials(user.name) : 'U'}
+                            <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-100 font-semibold flex-shrink-0">
+                                {user?.photoUrl ? (
+                                    <RobustImage
+                                        src={
+                                            user.photoUrl.startsWith('data:') ||
+                                            user.photoUrl.startsWith('blob:') ||
+                                            user.photoUrl.startsWith('http')
+                                                ? user.photoUrl
+                                                : user.photoUrl
+                                        }
+                                        alt={user?.name || 'Foto de perfil'}
+                                        className="w-full h-full object-cover"
+                                        width={48}
+                                        height={48}
+                                        showLoading={false}
+                                    />
+                                ) : (
+                                    <span className="text-base">{user?.name ? getInitials(user.name) : 'U'}</span>
+                                )}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs text-muted-foreground">Bem-vindo(a),</p>

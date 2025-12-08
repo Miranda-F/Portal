@@ -25,69 +25,69 @@ export function buildFolderTree(documents: Document[]): FolderNode[] {
         path: 'Root/Área Técnica',
         children: []
       },
-      {
-        id: 'gestao-qualidade',
-        name: 'Gestão da Qualidade',
-        path: 'Root/Gestão da Qualidade',
-        children: [
           {
-            id: 'certificados',
-            name: 'Certificados',
+            id: 'gestao-qualidade',
+            name: 'Gestão da Qualidade',
+        path: 'Root/Gestão da Qualidade',
+            children: [
+              {
+                id: 'certificados',
+                name: 'Certificados',
             path: 'Root/Gestão da Qualidade/Certificados',
             children: []
           },
           { id: 'form', name: 'Formulários', path: 'Root/Gestão da Qualidade/Formulários', type: 'form' },
           { id: 'instruction', name: 'Instrução Técnica', path: 'Root/Gestão da Qualidade/Instrução Técnica', type: 'instruction' },
           { id: 'procedure', name: 'Procedimentos', path: 'Root/Gestão da Qualidade/Procedimentos', type: 'procedure' },
-          {
-            id: 'modelo-doc',
-            name: 'Modelo de Doc',
+              {
+                id: 'modelo-doc',
+                name: 'Modelo de Doc',
             path: 'Root/Gestão da Qualidade/Modelo de Doc',
-            children: []
-          },
-          {
-            id: 'normas',
-            name: 'Normas',
+                children: []
+              },
+              {
+                id: 'normas',
+                name: 'Normas',
             path: 'Root/Gestão da Qualidade/Normas',
-            children: []
-          },
-          {
-            id: 'treinamento',
-            name: 'Treinamento',
+                children: []
+              },
+              {
+                id: 'treinamento',
+                name: 'Treinamento',
             path: 'Root/Gestão da Qualidade/Treinamento',
-            children: []
+                children: []
           }
         ]
-      },
-      {
-        id: 'meio-ambiente',
-        name: 'Meio Ambiente',
+              },
+              {
+                id: 'meio-ambiente',
+                name: 'Meio Ambiente',
         path: 'Root/Meio Ambiente',
-        children: []
-      },
-      {
-        id: 'producao',
-        name: 'Produção',
+                children: []
+              },
+              {
+                id: 'producao',
+                name: 'Produção',
         path: 'Root/Produção',
-        children: []
-      },
-      {
-        id: 'recursos-humanos',
-        name: 'Recursos Humanos',
+                children: []
+              },
+              {
+                id: 'recursos-humanos',
+                name: 'Recursos Humanos',
         path: 'Root/Recursos Humanos',
-        children: []
-      },
-      {
-        id: 'seguranca-trabalho',
-        name: 'Segurança do Trabalho',
+                children: []
+              },
+              {
+                id: 'seguranca-trabalho',
+                name: 'Segurança do Trabalho',
         path: 'Root/Segurança do Trabalho',
-        children: []
-      },
-      {
-        id: 'sgi',
-        name: 'SGI',
+                children: []
+              },
+              {
+                id: 'sgi',
+                name: 'SGI',
         path: 'Root/SGI',
-        children: []
+                children: []
       },
       { id: 'policy', name: 'Políticas', path: 'Root/Políticas', type: 'policy' },
       { id: 'manual', name: 'Manuais', path: 'Root/Manuais', type: 'manual' },
@@ -241,7 +241,7 @@ export function buildFolderTree(documents: Document[]): FolderNode[] {
         // Verificar se a pasta está no caminho padrão para este tipo
         const defaultPath = typeToDefaultFolderPath[type]
         if (folderPath === defaultPath) {
-          return type
+            return type
         }
       }
     }

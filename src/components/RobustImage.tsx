@@ -59,6 +59,16 @@ export function RobustImage({
     if (onLoad) onLoad()
   }
 
+  // Garantir dimensões quando não estiver usando fill (Next exige width/height)
+  const resolvedWidth = fill ? undefined : (width ?? 128)
+  const resolvedHeight = fill ? undefined : (height ?? 128)
+
+  const shouldUnoptimize =
+    imgSrc.startsWith('data:') ||
+    imgSrc.startsWith('blob:') ||
+    imgSrc.includes('localhost') ||
+    imgSrc.includes('127.0.0.1')
+
   if (hasError) {
     return <>{fallback}</>
   }
@@ -78,8 +88,8 @@ export function RobustImage({
           isLoading && showLoading ? 'opacity-0' : 'opacity-100',
           className
         )}
-        unoptimized={imgSrc.startsWith('data:') || imgSrc.includes('.gif')}
-        {...(fill ? { fill: true } : { width, height })}
+        unoptimized={shouldUnoptimize || imgSrc.includes('.gif')}
+        {...(fill ? { fill: true } : { width: resolvedWidth, height: resolvedHeight })}
       />
       {isLoading && showLoading && (
         <div className="absolute inset-0 bg-muted/20 flex items-center justify-center">
